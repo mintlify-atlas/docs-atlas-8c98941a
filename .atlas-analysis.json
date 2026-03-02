@@ -1,0 +1,149 @@
+{
+  "projectType": "saas",
+  "projectName": "SuperCmd",
+  "projectDescription": "Open-source macOS launcher with Raycast compatibility, voice workflows, and AI-native actions.",
+  "theme": "palm",
+  "primaryColor": "#8B5CF6",
+  "lightColor": "#A78BFA",
+  "darkColor": "#6D28D9",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/extensions",
+              "features/voice-input",
+              "features/text-to-speech",
+              "features/ai-integration",
+              "features/window-management",
+              "features/clipboard-history",
+              "features/snippet-expansion"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/settings",
+              "configuration/permissions",
+              "configuration/ai-providers",
+              "configuration/hotkeys"
+            ]
+          },
+          {
+            "group": "Extensions",
+            "pages": [
+              "extensions/overview",
+              "extensions/installing",
+              "extensions/managing",
+              "extensions/compatibility"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "development/setup",
+              "development/architecture",
+              "development/building"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "development/extension-runtime",
+              "development/raycast-api",
+              "development/electron-architecture",
+              "development/native-modules"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "development/contributing",
+              "development/code-organization",
+              "development/testing",
+              "development/troubleshooting"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Raycast API",
+            "pages": [
+              "api/components",
+              "api/hooks",
+              "api/functions",
+              "api/utilities"
+            ]
+          },
+          {
+            "group": "Implementation Status",
+            "pages": [
+              "api/status"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Raycast extension compatibility with @raycast/api shims",
+    "Voice input with hold-to-speak dictation (Wispr Flow style)",
+    "Text-to-speech for selected text (Speechify style)",
+    "AI integration with Ollama, OpenAI, and Anthropic",
+    "Memory-aware AI with Supermemory integration",
+    "Native macOS window management and hotkeys",
+    "Clipboard history management",
+    "Snippet expansion",
+    "Script command support",
+    "Extension discovery and installation from Raycast store"
+  ],
+  "publicApiSurface": [
+    "List - Full component with filtering, pagination, detail view",
+    "Detail - Component with metadata support",
+    "Form - All field types including DatePicker, FilePicker",
+    "Grid - Grid layout with sections and accessories",
+    "ActionPanel - Action panel with submenu support",
+    "Action - Open, Push, CopyToClipboard, ToggleQuickLook",
+    "MenuBarExtra - Menu bar integration",
+    "useNavigation - Push/pop navigation stack",
+    "showToast - Toast notifications",
+    "showHUD - HUD overlay",
+    "confirmAlert - Alert dialogs",
+    "open - Open URLs and applications",
+    "closeMainWindow - Window management",
+    "popToRoot - Navigation reset",
+    "launchCommand - Command launching",
+    "getSelectedText - Get selected text from macOS",
+    "getApplications - List installed applications",
+    "getFrontmostApplication - Get active application",
+    "Clipboard - Clipboard operations",
+    "LocalStorage - Persistent storage",
+    "Cache - Caching system",
+    "AI - AI integration with streaming support",
+    "useFetch - HTTP fetching with pagination",
+    "useCachedPromise - Promise caching",
+    "useForm - Form state management",
+    "useExec - Command execution",
+    "useSQL - SQLite queries",
+    "useAI - AI streaming hook"
+  ]
+}
