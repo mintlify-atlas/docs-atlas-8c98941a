@@ -1,0 +1,268 @@
+---
+title: "Introduction to SuperCmd"
+description: "Open-source macOS launcher with Raycast compatibility, AI-powered workflows, and voice input"
+---
+
+<img
+  className="block dark:hidden"
+  src="/images/hero-light.svg"
+  alt="SuperCmd Hero Light"
+/>
+<img
+  className="hidden dark:block"
+  src="/images/hero-dark.svg"
+  alt="SuperCmd Hero Dark"
+/>
+
+## What is SuperCmd?
+
+SuperCmd is an **open-source productivity launcher** for macOS that combines the power of Raycast extensions with AI-native features like voice dictation, text-to-speech, and memory-aware AI assistance.
+
+Built with Electron, React, and TypeScript, SuperCmd provides a **fully compatible Raycast extension runtime** while remaining community-driven and free.
+
+<CardGroup cols={2}>
+  <Card
+    title="Get Started"
+    icon="rocket"
+    href="/installation"
+  >
+    Download and install SuperCmd in minutes
+  </Card>
+  <Card
+    title="Quick Start Guide"
+    icon="bolt"
+    href="/quickstart"
+  >
+    Learn the basics and run your first command
+  </Card>
+  <Card
+    title="Browse Extensions"
+    icon="puzzle-piece"
+    href="/extensions/overview"
+  >
+    Explore Raycast-compatible extensions
+  </Card>
+  <Card
+    title="Developer Guide"
+    icon="code"
+    href="/development/setup"
+  >
+    Build from source and contribute
+  </Card>
+</CardGroup>
+
+## Key Features
+
+<AccordionGroup>
+  <Accordion icon="puzzle-piece" title="Raycast Extension Compatibility">
+    SuperCmd provides a complete runtime shim for `@raycast/api` and `@raycast/utils`, allowing you to run existing Raycast extensions without modification.
+
+    **What's supported:**
+    - All core components (List, Detail, Form, Grid, ActionPanel)
+    - Navigation and actions
+    - Clipboard, LocalStorage, and Cache APIs
+    - AI integration with `AI.ask()` and `useAI()`
+    - OAuth flows
+    - All utility hooks from `@raycast/utils`
+
+    Extensions are bundled with esbuild and executed in an isolated runtime that shares React context with the host app.
+  </Accordion>
+
+  <Accordion icon="microphone" title="Wispr Flow-Style Voice Input">
+    **Hold to speak, release to type** — SuperCmd includes native speech-to-text powered by macOS Speech Recognition API and optional ElevenLabs integration.
+
+    Perfect for:
+    - Dictating long messages
+    - Hands-free command input
+    - Fast note-taking
+
+    <Note>
+      Voice features require **Microphone** and **Input Monitoring** permissions on first use.
+    </Note>
+  </Accordion>
+
+  <Accordion icon="volume-high" title="Speechify-Style Text-to-Speech">
+    Select any text and have SuperCmd read it aloud using:
+    - **Edge TTS** (built-in, no API key required)
+    - **ElevenLabs** (premium voices with natural intonation)
+
+    Includes pause, resume, and speed controls in a sleek overlay window.
+  </Accordion>
+
+  <Accordion icon="brain" title="Memory-Aware AI">
+    SuperCmd integrates with **Supermemory** to provide AI responses that remember context from your previous conversations and documents.
+
+    **Supported AI providers:**
+    - OpenAI (GPT-4, GPT-4o, GPT-4o-mini)
+    - Anthropic (Claude 3.5 Sonnet, Claude 3 Opus)
+    - Ollama (local models like Llama 3, Mistral)
+
+    All AI features respect your privacy — your API keys stay local in `~/Library/Application Support/SuperCmd/settings.json`.
+  </Accordion>
+
+  <Accordion icon="window-maximize" title="Native Window Management">
+    Control app windows with Swift-powered native bindings:
+    - Tile windows to halves, quarters, or thirds
+    - Center, maximize, or minimize windows
+    - Move windows between displays
+    - Custom window size presets
+
+    Requires **Accessibility** permission for `AXIsProcessTrusted()` checks.
+  </Accordion>
+
+  <Accordion icon="clipboard" title="Clipboard History Manager">
+    Never lose copied content again. SuperCmd maintains a searchable history of everything you copy, with support for:
+    - Text
+    - Images
+    - Files
+    - Rich content
+
+    Access your clipboard history instantly from the launcher.
+  </Accordion>
+
+  <Accordion icon="code" title="Snippet Expansion">
+    Create reusable text snippets with keyword triggers. Type the keyword, and SuperCmd automatically expands it to the full text.
+
+    Perfect for:
+    - Email templates
+    - Code boilerplate
+    - Frequently used phrases
+    - Signatures and contact info
+  </Accordion>
+</AccordionGroup>
+
+## Tech Stack
+
+SuperCmd is built with modern web technologies:
+
+<CardGroup cols={3}>
+  <Card title="Electron 40" icon="electron">
+    Cross-process architecture with secure IPC
+  </Card>
+  <Card title="React 18" icon="react">
+    Fast, declarative UI rendering
+  </Card>
+  <Card title="TypeScript 5" icon="code">
+    Type-safe development
+  </Card>
+  <Card title="Vite" icon="bolt">
+    Lightning-fast build tooling
+  </Card>
+  <Card title="Swift" icon="apple">
+    Native macOS integrations
+  </Card>
+  <Card title="esbuild" icon="box">
+    Extension bundling at compile speed
+  </Card>
+</CardGroup>
+
+## Architecture Overview
+
+SuperCmd uses a **multi-process Electron architecture** with clear separation of concerns:
+
+```text
+src/main/        Electron main process
+├── main.ts              IPC handlers, window management, global shortcuts
+├── extension-runner.ts  Extension execution engine (esbuild + require shim)
+├── extension-registry.ts Extension catalog, install, uninstall, update
+├── ai-provider.ts       AI streaming (OpenAI / Anthropic / Ollama)
+└── settings-store.ts    JSON settings persistence
+
+src/renderer/    Electron renderer process
+├── App.tsx              Root component, view routing
+├── raycast-api/         @raycast/api compatibility layer
+│   ├── index.tsx           Integration surface
+│   ├── list-runtime.tsx    List component runtime
+│   ├── form-runtime.tsx    Form component runtime
+│   ├── grid-runtime.tsx    Grid component runtime
+│   └── action-runtime.tsx  Action panel runtime
+└── hooks/               Feature hooks (AI, voice, navigation)
+
+src/native/      Swift native modules
+├── hotkey-hold-monitor.swift  Global hotkey detection
+├── speech-recognizer.swift    Speech-to-text
+├── window-adjust.swift        Window management
+└── snippet-expander.swift     Keystroke injection
+```
+
+<Tip>
+  Extensions run in **isolated contexts** but share the React instance with the host app for proper context and hook support.
+</Tip>
+
+## Why SuperCmd?
+
+<CardGroup cols={2}>
+  <Card title="100% Open Source" icon="code-branch">
+    MIT licensed, community-driven development
+  </Card>
+  <Card title="Raycast Compatible" icon="plug">
+    Run existing extensions without modification
+  </Card>
+  <Card title="Privacy First" icon="shield-halved">
+    API keys and data stay local, never sent to our servers
+  </Card>
+  <Card title="Extensible" icon="puzzle-piece">
+    Build custom extensions using the Raycast API
+  </Card>
+</CardGroup>
+
+## Community & Support
+
+<CardGroup cols={2}>
+  <Card
+    title="GitHub Repository"
+    icon="github"
+    href="https://github.com/SuperCmdLabs/SuperCmd"
+  >
+    Star, fork, and contribute on GitHub
+  </Card>
+  <Card
+    title="Discord Community"
+    icon="discord"
+    href="https://discord.gg/CsdbknHqx5"
+  >
+    Join our Discord for support and discussion
+  </Card>
+  <Card
+    title="Report Issues"
+    icon="bug"
+    href="https://github.com/SuperCmdLabs/SuperCmd/issues"
+  >
+    Found a bug? Let us know
+  </Card>
+  <Card
+    title="Contributing Guide"
+    icon="code-pull-request"
+    href="/development/contributing"
+  >
+    Learn how to contribute to SuperCmd
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<Steps>
+  <Step title="Install SuperCmd">
+    Download the latest release and set up permissions
+    
+    [Installation Guide →](/installation)
+  </Step>
+  
+  <Step title="Complete the Quick Start">
+    Learn the basics and run your first command
+    
+    [Quick Start →](/quickstart)
+  </Step>
+  
+  <Step title="Configure AI Providers">
+    Set up OpenAI, Claude, or Ollama for AI features
+    
+    [AI Configuration →](/configuration/ai-providers)
+  </Step>
+  
+  <Step title="Install Extensions">
+    Browse and install Raycast-compatible extensions
+    
+    [Extension Guide →](/extensions/installing)
+  </Step>
+</Steps>

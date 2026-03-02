@@ -1,0 +1,524 @@
+---
+title: AI Providers
+description: Configure AI integrations for chat, voice input, and text-to-speech
+---
+
+## Overview
+
+SuperCmd supports multiple AI providers for different features:
+
+- **LLM Chat**: OpenAI, Anthropic, Google Gemini, Ollama, OpenAI-compatible
+- **Speech-to-Text**: Native macOS, OpenAI Whisper, ElevenLabs
+- **Text-to-Speech**: Edge TTS (free), ElevenLabs, Native macOS
+- **Memory**: Supermemory integration
+
+All AI settings are configured in **Settings → AI** or by editing `~/Library/Application Support/SuperCmd/settings.json`.
+
+<Note>
+AI features are optional. SuperCmd works perfectly fine without any AI provider configured.
+</Note>
+
+## LLM Providers
+
+### OpenAI
+
+**Models supported:**
+- `gpt-4o` (recommended)
+- `gpt-4o-mini` (faster, cheaper)
+- `gpt-4-turbo`
+- `gpt-3.5-turbo`
+
+**Setup:**
+
+<Steps>
+  <Step title="Get API Key">
+    1. Go to [platform.openai.com](https://platform.openai.com)
+    2. Create an account or sign in
+    3. Navigate to **API Keys**
+    4. Click **Create new secret key**
+  </Step>
+  <Step title="Configure SuperCmd">
+    ```json
+    {
+      "ai": {
+        "enabled": true,
+        "provider": "openai",
+        "openaiApiKey": "sk-...",
+        "defaultModel": "gpt-4o-mini"
+      }
+    }
+    ```
+  </Step>
+  <Step title="Test">
+    Open SuperCmd and type `?hello` to test AI chat
+  </Step>
+</Steps>
+
+**Pricing (as of 2024):**
+- GPT-4o: $5 per 1M input tokens, $15 per 1M output tokens
+- GPT-4o-mini: $0.15 per 1M input tokens, $0.60 per 1M output tokens
+
+---
+
+### Anthropic (Claude)
+
+**Models supported:**
+- `claude-sonnet-4-20250514` (recommended)
+- `claude-3-5-sonnet-20241022`
+- `claude-3-5-haiku-20241022`
+- `claude-3-opus-20240229`
+
+**Setup:**
+
+<Steps>
+  <Step title="Get API Key">
+    1. Go to [console.anthropic.com](https://console.anthropic.com)
+    2. Create an account
+    3. Navigate to **API Keys**
+    4. Click **Create Key**
+  </Step>
+  <Step title="Configure SuperCmd">
+    ```json
+    {
+      "ai": {
+        "enabled": true,
+        "provider": "anthropic",
+        "anthropicApiKey": "sk-ant-...",
+        "defaultModel": "claude-sonnet-4-20250514"
+      }
+    }
+    ```
+  </Step>
+  <Step title="Test">
+    Type `?what is SuperCmd` in the launcher
+  </Step>
+</Steps>
+
+**Pricing:**
+- Claude Sonnet: $3 per 1M input tokens, $15 per 1M output tokens
+- Claude Haiku: $0.25 per 1M input tokens, $1.25 per 1M output tokens
+
+---
+
+### Google Gemini
+
+**Models supported:**
+- `gemini-2.0-flash-exp` (recommended)
+- `gemini-1.5-flash`
+- `gemini-1.5-pro`
+
+**Setup:**
+
+<Steps>
+  <Step title="Get API Key">
+    1. Go to [aistudio.google.com](https://aistudio.google.com)
+    2. Click **Get API Key**
+    3. Create a new key or use existing
+  </Step>
+  <Step title="Configure SuperCmd">
+    ```json
+    {
+      "ai": {
+        "enabled": true,
+        "provider": "gemini",
+        "geminiApiKey": "AI...",
+        "defaultModel": "gemini-2.0-flash-exp"
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+**Pricing:**
+- Gemini Flash: Free tier available, then $0.075 per 1M tokens
+- Gemini Pro: $1.25 per 1M input tokens
+
+---
+
+### Ollama (Local)
+
+**Models available:**
+- `llama3.2` (3B, 1B)
+- `qwen2.5` (7B, 14B, 32B)
+- `mistral` (7B)
+- Any model from [ollama.com/library](https://ollama.com/library)
+
+**Setup:**
+
+<Steps>
+  <Step title="Install Ollama">
+    ```bash
+    brew install ollama
+    ```
+  </Step>
+  <Step title="Pull a model">
+    ```bash
+    ollama pull llama3.2
+    ```
+  </Step>
+  <Step title="Start Ollama server">
+    ```bash
+    ollama serve
+    ```
+  </Step>
+  <Step title="Configure SuperCmd">
+    ```json
+    {
+      "ai": {
+        "enabled": true,
+        "provider": "ollama",
+        "ollamaBaseUrl": "http://localhost:11434",
+        "defaultModel": "llama3.2"
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+<Info>
+Ollama runs models locally — no API costs, but requires significant RAM and CPU.
+</Info>
+
+**System requirements:**
+- 8GB RAM minimum (16GB recommended)
+- Apple Silicon Mac recommended for best performance
+- 4-10GB disk space per model
+
+---
+
+### OpenAI-Compatible APIs
+
+Supports any API that follows the OpenAI chat completions format:
+
+- OpenRouter
+- Together AI
+- Groq
+- Local LLMs (LM Studio, LocalAI)
+
+**Setup:**
+
+```json
+{
+  "ai": {
+    "enabled": true,
+    "provider": "openai-compatible",
+    "openaiCompatibleBaseUrl": "https://api.openrouter.ai/api/v1",
+    "openaiCompatibleApiKey": "sk-or-...",
+    "openaiCompatibleModel": "anthropic/claude-3.5-sonnet"
+  }
+}
+```
+
+<Tip>
+Use OpenRouter to access multiple models (Claude, GPT-4, Llama) through a single API.
+</Tip>
+
+---
+
+## Speech-to-Text (STT)
+
+### Native macOS (Default)
+
+**Free, on-device, no API key required.**
+
+```json
+{
+  "ai": {
+    "speechToTextModel": "native",
+    "speechLanguage": "en-US"
+  }
+}
+```
+
+**Supported languages:**
+- English: `en-US`, `en-GB`, `en-AU`
+- Spanish: `es-ES`, `es-MX`
+- French: `fr-FR`
+- German: `de-DE`
+- Italian: `it-IT`
+- Japanese: `ja-JP`
+- Korean: `ko-KR`
+- Chinese: `zh-CN`, `zh-TW`
+- And 50+ more via `SFSpeechRecognizer`
+
+**Source:** `src/native/speech-recognizer.swift`
+
+---
+
+### OpenAI Whisper
+
+**Models:**
+- `whisper-1` (hosted by OpenAI)
+
+**Setup:**
+
+```json
+{
+  "ai": {
+    "speechToTextModel": "whisper-1",
+    "openaiApiKey": "sk-..."
+  }
+}
+```
+
+**Pricing:** $0.006 per minute of audio
+
+---
+
+### ElevenLabs
+
+**Models:**
+- `eleven_multilingual_v2`
+
+**Setup:**
+
+```json
+{
+  "ai": {
+    "speechToTextModel": "eleven_multilingual_v2",
+    "elevenlabsApiKey": "..."
+  }
+}
+```
+
+**Pricing:** Part of ElevenLabs subscription
+
+---
+
+## Text-to-Speech (TTS)
+
+### Edge TTS (Default)
+
+**Free, cloud-based, no API key required.**
+
+```json
+{
+  "ai": {
+    "textToSpeechModel": "edge-tts",
+    "edgeTtsVoice": "en-US-EricNeural"
+  }
+}
+```
+
+**Popular voices:**
+- English: `en-US-EricNeural`, `en-US-JennyNeural`, `en-GB-SoniaNeural`
+- Spanish: `es-ES-AlvaroNeural`, `es-MX-DaliaNeural`
+- French: `fr-FR-DeniseNeural`
+- German: `de-DE-ConradNeural`
+- Japanese: `ja-JP-NanamiNeural`
+
+Full list: [npm:edge-tts](https://www.npmjs.com/package/edge-tts)
+
+**Source:** `src/main/ai-provider.ts` (using `node-edge-tts`)
+
+---
+
+### ElevenLabs
+
+**High-quality, natural-sounding voices.**
+
+**Setup:**
+
+<Steps>
+  <Step title="Get API Key">
+    1. Go to [elevenlabs.io](https://elevenlabs.io)
+    2. Sign up for an account
+    3. Navigate to **Profile → API Keys**
+  </Step>
+  <Step title="Configure SuperCmd">
+    ```json
+    {
+      "ai": {
+        "textToSpeechModel": "elevenlabs",
+        "elevenlabsApiKey": "..."
+      }
+    }
+    ```
+  </Step>
+  <Step title="Choose a voice">
+    Default voices:
+    - `Rachel` (21m00Tcm4TlvDq8ikWAM)
+    - `Domi` (AZnzlk1XvdvUeBnXmlld)
+    - `Bella` (EXAVITQu4vr4xnSDxMaL)
+  </Step>
+</Steps>
+
+**Pricing:**
+- Free tier: 10,000 characters/month
+- Starter: $5/month for 30,000 characters
+- Creator: $22/month for 100,000 characters
+
+**Testing ElevenLabs:**
+
+```bash
+curl -X POST "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM?output_format=mp3_44100_128" \
+  -H "xi-api-key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Hello from SuperCmd","model_id":"eleven_multilingual_v2"}' \
+  --output test.mp3
+```
+
+---
+
+### Native macOS TTS
+
+**On-device, free.**
+
+```json
+{
+  "ai": {
+    "textToSpeechModel": "native"
+  }
+}
+```
+
+Uses `NSSpeechSynthesizer` — decent quality but less natural than Edge TTS or ElevenLabs.
+
+---
+
+## Supermemory Integration
+
+**Add long-term memory to AI chat.**
+
+[Supermemory](https://supermemory.ai) stores context from previous conversations and retrieves relevant information automatically.
+
+**Setup:**
+
+<Steps>
+  <Step title="Create Supermemory account">
+    Go to [supermemory.ai](https://supermemory.ai) and sign up
+  </Step>
+  <Step title="Get API credentials">
+    1. Navigate to **Settings → API**
+    2. Copy your API key and client ID
+  </Step>
+  <Step title="Configure SuperCmd">
+    ```json
+    {
+      "ai": {
+        "supermemoryApiKey": "...",
+        "supermemoryClient": "...",
+        "supermemoryBaseUrl": "https://api.supermemory.ai",
+        "supermemoryLocalMode": false
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+**Environment variable fallbacks:**
+
+```bash
+export SUPERMEMORY_API_KEY="..."
+export SUPERMEMORY_CLIENT="..."
+```
+
+**Source:** `src/main/memory.ts`
+
+---
+
+## Speech Correction
+
+**Automatically fix speech-to-text errors using an LLM.**
+
+```json
+{
+  "ai": {
+    "speechCorrectionEnabled": true,
+    "speechCorrectionModel": "gpt-4o-mini"
+  }
+}
+```
+
+When enabled, transcribed text is sent to the correction model to:
+- Fix capitalization
+- Add punctuation
+- Correct common speech-to-text errors
+
+<Warning>
+Speech correction adds ~500ms latency and uses additional API credits.
+</Warning>
+
+---
+
+## Feature Toggles
+
+You can enable/disable individual AI features:
+
+```json
+{
+  "ai": {
+    "enabled": true,
+    "llmEnabled": true,
+    "whisperEnabled": true,
+    "readEnabled": true
+  }
+}
+```
+
+| Setting | Feature | Default |
+|---|---|---|
+| `enabled` | Master AI toggle | `true` |
+| `llmEnabled` | AI chat (`?` prefix) | `true` |
+| `whisperEnabled` | Voice input (hold-to-speak) | `true` |
+| `readEnabled` | Text-to-speech (Read) | `true` |
+
+---
+
+## Troubleshooting
+
+<Accordion title="AI chat doesn't work">
+  1. Check that `ai.enabled` is `true`
+  2. Verify your API key is correct
+  3. Test API key with curl:
+     ```bash
+     curl https://api.openai.com/v1/models \
+       -H "Authorization: Bearer YOUR_KEY"
+     ```
+  4. Check console logs (Cmd+Option+I) for errors
+</Accordion>
+
+<Accordion title="Voice input doesn't transcribe">
+  1. Ensure microphone permission is granted
+  2. Test microphone with Voice Memos app
+  3. Check `ai.speechToTextModel` setting
+  4. For Whisper: verify `openaiApiKey`
+  5. Try switching to `native` model
+</Accordion>
+
+<Accordion title="API rate limit errors">
+  OpenAI free tier limits:
+  - 3 requests per minute
+  - 200 requests per day
+  
+  Solutions:
+  - Upgrade to paid plan
+  - Switch to `gpt-4o-mini` (cheaper)
+  - Use Ollama (local, no limits)
+</Accordion>
+
+<Accordion title="Ollama connection refused">
+  1. Ensure Ollama is running: `ollama serve`
+  2. Check base URL: `http://localhost:11434`
+  3. Test with: `curl http://localhost:11434/api/tags`
+  4. Verify model is pulled: `ollama list`
+</Accordion>
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Voice Input" icon="microphone" href="/features/voice-input">
+    Use hold-to-speak dictation
+  </Card>
+  <Card title="Text-to-Speech" icon="volume-high" href="/features/text-to-speech">
+    Read selected text aloud
+  </Card>
+  <Card title="AI Integration" icon="brain" href="/features/ai-integration">
+    Learn about AI features
+  </Card>
+  <Card title="Settings" icon="gear" href="/configuration/settings">
+    All configuration options
+  </Card>
+</CardGroup>

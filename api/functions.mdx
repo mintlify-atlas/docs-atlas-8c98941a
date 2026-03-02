@@ -1,0 +1,542 @@
+---
+title: 'Functions'
+description: 'Utility functions for UI, navigation, and system integration'
+icon: 'function'
+---
+
+SuperCmd provides all Raycast API functions for window management, notifications, navigation, and system operations.
+
+## UI & Feedback
+
+### showToast
+
+<Card title="showToast" icon="message" href="#showtoast">
+  Show toast notifications with actions
+</Card>
+
+Display toast notifications to provide feedback to users.
+
+**Type Signature:**
+```tsx
+function showToast(options: Toast.Options): Promise<Toast>;
+function showToast(style: Toast.Style, title: string, message?: string): Promise<Toast>;
+
+interface Toast.Options {
+  title: string;
+  message?: string;
+  style?: Toast.Style; // 'success' | 'failure' | 'animated'
+  primaryAction?: {
+    title: string;
+    onAction?: () => void;
+    shortcut?: Keyboard.Shortcut;
+  };
+  secondaryAction?: {
+    title: string;
+    onAction?: () => void;
+    shortcut?: Keyboard.Shortcut;
+  };
+}
+```
+
+**Example:**
+```tsx
+import { showToast, Toast } from '@raycast/api';
+
+await showToast({
+  style: Toast.Style.Success,
+  title: 'Task completed',
+  message: 'Your file has been saved',
+  primaryAction: {
+    title: 'Open File',
+    onAction: () => open(filePath),
+    shortcut: { modifiers: ['cmd'], key: 'o' },
+  },
+});
+```
+
+**Interactive Features:**
+- Press `⌘T` to show toast actions menu
+- Actions can have keyboard shortcuts
+- Toasts auto-dismiss after 3s (6s with actions)
+- Only one toast shown at a time
+
+---
+
+### showHUD
+
+<Card title="showHUD" icon="display" href="#showhud">
+  Show HUD overlay message
+</Card>
+
+Display a brief HUD message overlay.
+
+**Type Signature:**
+```tsx
+function showHUD(
+  title: string,
+  options?: {
+    clearRootSearch?: boolean;
+    popToRootType?: PopToRootType;
+  }
+): Promise<void>;
+```
+
+**Example:**
+```tsx
+import { showHUD } from '@raycast/api';
+
+await showHUD('Copied to clipboard!');
+```
+
+---
+
+### confirmAlert
+
+<Card title="confirmAlert" icon="triangle-exclamation" href="#confirmalert">
+  Show confirmation dialog
+</Card>
+
+Show a confirmation alert dialog.
+
+**Type Signature:**
+```tsx
+function confirmAlert(options: Alert.Options): Promise<boolean>;
+
+interface Alert.Options {
+  title: string;
+  message?: string;
+  icon?: Image.ImageLike;
+  primaryAction?: {
+    title: string;
+    onAction?: () => void;
+    style?: Alert.ActionStyle; // 'default' | 'destructive' | 'cancel'
+  };
+  dismissAction?: {
+    title: string;
+    onAction?: () => void;
+  };
+}
+```
+
+**Example:**
+```tsx
+import { confirmAlert } from '@raycast/api';
+
+const confirmed = await confirmAlert({
+  title: 'Delete File',
+  message: 'Are you sure you want to delete this file? This cannot be undone.',
+  primaryAction: {
+    title: 'Delete',
+    style: Alert.ActionStyle.Destructive,
+  },
+});
+
+if (confirmed) {
+  // Delete file
+}
+```
+
+---
+
+## Navigation & Window Management
+
+### closeMainWindow
+
+<Card title="closeMainWindow" icon="xmark" href="#closemainwindow">
+  Close the main window
+</Card>
+
+Close the main SuperCmd window.
+
+**Type Signature:**
+```tsx
+function closeMainWindow(options?: {
+  clearRootSearch?: boolean;
+  popToRootType?: PopToRootType;
+}): Promise<void>;
+```
+
+**Example:**
+```tsx
+import { closeMainWindow } from '@raycast/api';
+
+await closeMainWindow({ clearRootSearch: true });
+```
+
+---
+
+### popToRoot
+
+<Card title="popToRoot" icon="arrow-rotate-left" href="#poptoroot">
+  Navigate back to root view
+</Card>
+
+Navigate back to the root view of the extension.
+
+**Type Signature:**
+```tsx
+function popToRoot(options?: {
+  clearRootSearch?: boolean;
+}): Promise<void>;
+```
+
+---
+
+### clearSearchBar
+
+<Card title="clearSearchBar" icon="eraser" href="#clearsearchbar">
+  Clear the search bar text
+</Card>
+
+Clear the current search bar text.
+
+**Type Signature:**
+```tsx
+function clearSearchBar(options?: {
+  forceScrollToTop?: boolean;
+}): Promise<void>;
+```
+
+---
+
+## System Integration
+
+### open
+
+<Card title="open" icon="arrow-up-right-from-square" href="#open">
+  Open URLs, files, or applications
+</Card>
+
+Open URLs, files, or launch applications.
+
+**Type Signature:**
+```tsx
+function open(
+  target: string,
+  application?: string | Application
+): Promise<void>;
+```
+
+**Example:**
+```tsx
+import { open } from '@raycast/api';
+
+// Open URL in default browser
+await open('https://example.com');
+
+// Open URL in specific browser
+await open('https://example.com', 'Safari');
+
+// Open file
+await open('/path/to/file.pdf');
+
+// Open file in specific app
+await open('/path/to/image.png', 'Preview');
+```
+
+---
+
+### getApplications
+
+<Card title="getApplications" icon="grid-2-plus" href="#getapplications">
+  Get list of installed applications
+</Card>
+
+Get a list of installed applications.
+
+**Type Signature:**
+```tsx
+function getApplications(path?: string): Promise<Application[]>;
+
+interface Application {
+  name: string;
+  path: string;
+  bundleId?: string;
+}
+```
+
+**Example:**
+```tsx
+import { getApplications, List } from '@raycast/api';
+
+export default function Command() {
+  const [apps, setApps] = useState<Application[]>([]);
+  
+  useEffect(() => {
+    getApplications().then(setApps);
+  }, []);
+  
+  return (
+    <List>
+      {apps.map(app => (
+        <List.Item key={app.path} title={app.name} />
+      ))}
+    </List>
+  );
+}
+```
+
+---
+
+### getDefaultApplication
+
+<Card title="getDefaultApplication" icon="file" href="#getdefaultapplication">
+  Get default application for a file
+</Card>
+
+Get the default application for opening a file.
+
+**Type Signature:**
+```tsx
+function getDefaultApplication(path: string): Promise<Application>;
+```
+
+---
+
+### getFrontmostApplication
+
+<Card title="getFrontmostApplication" icon="window-maximize" href="#getfrontmostapplication">
+  Get the currently active application
+</Card>
+
+Get the frontmost (active) application.
+
+**Type Signature:**
+```tsx
+function getFrontmostApplication(): Promise<Application>;
+```
+
+---
+
+### showInFinder
+
+<Card title="showInFinder" icon="folder-open" href="#showinfinder">
+  Reveal file/folder in Finder
+</Card>
+
+Reveal a file or folder in Finder.
+
+**Type Signature:**
+```tsx
+function showInFinder(path: string): Promise<void>;
+```
+
+**Example:**
+```tsx
+import { showInFinder } from '@raycast/api';
+
+await showInFinder('/Users/me/Documents/file.pdf');
+```
+
+---
+
+### trash
+
+<Card title="trash" icon="trash" href="#trash">
+  Move files to trash
+</Card>
+
+Move one or more files to the trash.
+
+**Type Signature:**
+```tsx
+function trash(paths: string | string[]): Promise<void>;
+```
+
+**Example:**
+```tsx
+import { trash, showToast, Toast } from '@raycast/api';
+
+try {
+  await trash('/path/to/file.txt');
+  await showToast(Toast.Style.Success, 'File moved to trash');
+} catch (error) {
+  await showToast(Toast.Style.Failure, 'Failed to delete file');
+}
+```
+
+---
+
+### getSelectedText
+
+<Card title="getSelectedText" icon="text" href="#getselectedtext">
+  Get currently selected text from active app
+</Card>
+
+Get the currently selected text from the frontmost application.
+
+**Type Signature:**
+```tsx
+function getSelectedText(): Promise<string>;
+```
+
+<Warning>
+May require accessibility permissions on macOS.
+</Warning>
+
+---
+
+### getSelectedFinderItems
+
+<Card title="getSelectedFinderItems" icon="file" href="#getselectedfinderitems">
+  Get selected files in Finder
+</Card>
+
+Get the currently selected items in Finder.
+
+**Type Signature:**
+```tsx
+function getSelectedFinderItems(): Promise<FileSystemItem[]>;
+
+interface FileSystemItem {
+  path: string;
+}
+```
+
+<Warning>
+May require accessibility permissions on macOS.
+</Warning>
+
+---
+
+## Extension Management
+
+### launchCommand
+
+<Card title="launchCommand" icon="rocket" href="#launchcommand">
+  Launch another command
+</Card>
+
+Launch another command from the same or different extension.
+
+**Type Signature:**
+```tsx
+function launchCommand(options: {
+  name: string;
+  type: LaunchType;
+  extensionName?: string;
+  ownerOrAuthorName?: string;
+  context?: LaunchContext;
+}): Promise<void>;
+```
+
+**Example:**
+```tsx
+import { launchCommand, LaunchType } from '@raycast/api';
+
+await launchCommand({
+  name: 'search',
+  type: LaunchType.UserInitiated,
+  extensionName: 'my-extension',
+});
+```
+
+---
+
+### openExtensionPreferences
+
+<Card title="openExtensionPreferences" icon="gear" href="#openextensionpreferences">
+  Open extension preferences
+</Card>
+
+Open the extension preferences window.
+
+**Type Signature:**
+```tsx
+function openExtensionPreferences(): Promise<void>;
+```
+
+---
+
+### openCommandPreferences
+
+<Card title="openCommandPreferences" icon="sliders" href="#opencommandpreferences">
+  Open command preferences
+</Card>
+
+Open the command preferences window.
+
+**Type Signature:**
+```tsx
+function openCommandPreferences(): Promise<void>;
+```
+
+---
+
+### updateCommandMetadata
+
+<Card title="updateCommandMetadata" icon="pen-to-square" href="#updatecommandmetadata">
+  Update command metadata dynamically
+</Card>
+
+Update command metadata (subtitle) at runtime.
+
+**Type Signature:**
+```tsx
+function updateCommandMetadata(metadata: {
+  subtitle?: string;
+}): Promise<void>;
+```
+
+**Example:**
+```tsx
+import { updateCommandMetadata } from '@raycast/api';
+
+await updateCommandMetadata({ subtitle: '5 items' });
+```
+
+---
+
+### getPreferenceValues
+
+<Card title="getPreferenceValues" icon="list-check" href="#getpreferencevalues">
+  Get extension preferences
+</Card>
+
+Get the current extension's preference values.
+
+**Type Signature:**
+```tsx
+function getPreferenceValues<T = PreferenceValues>(): T;
+```
+
+**Example:**
+```tsx
+import { getPreferenceValues } from '@raycast/api';
+
+interface Preferences {
+  apiKey: string;
+  showNotifications: boolean;
+}
+
+const preferences = getPreferenceValues<Preferences>();
+console.log(preferences.apiKey);
+```
+
+---
+
+## Error Handling
+
+### captureException
+
+<Card title="captureException" icon="bug" href="#captureexception">
+  Log exceptions for debugging
+</Card>
+
+Capture and log exceptions for debugging.
+
+**Type Signature:**
+```tsx
+function captureException(error: Error): void;
+```
+
+**Example:**
+```tsx
+import { captureException } from '@raycast/api';
+
+try {
+  // Some operation
+} catch (error) {
+  captureException(error as Error);
+}
+```

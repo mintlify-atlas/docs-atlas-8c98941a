@@ -1,0 +1,500 @@
+---
+title: AI Integration
+description: Use AI chat, prompts, and automation throughout SuperCmd
+icon: sparkles
+---
+
+SuperCmd integrates powerful AI capabilities throughout the app, from chat interfaces to inline prompts to extension APIs.
+
+## Overview
+
+AI features in SuperCmd support multiple providers:
+
+- **OpenAI** (GPT-4, GPT-4 Turbo, GPT-3.5)
+- **Anthropic** (Claude Opus, Sonnet, Haiku)
+- **Google Gemini** (2.5 Pro, Flash)
+- **Ollama** (Local models)
+- **OpenAI-Compatible APIs** (Custom endpoints)
+
+<Info>
+  All AI features work through a unified API (src/main/ai-provider.ts) that abstracts provider differences.
+</Info>
+
+## Supported Providers
+
+### OpenAI
+
+Access GPT models:
+
+**Available Models:**
+- `gpt-4o` - Latest GPT-4 Omni
+- `gpt-4o-mini` - Fast, cost-effective
+- `gpt-4-turbo` - Previous flagship
+- `o1` - Advanced reasoning
+- `o1-mini` - Faster reasoning
+- `o3-mini` - Latest reasoning model
+
+**Setup:**
+1. Get API key from [platform.openai.com](https://platform.openai.com/api-keys)
+2. Settings > AI > OpenAI API Key
+3. Select default model
+
+### Anthropic Claude
+
+Access Claude models:
+
+**Available Models:**
+- `claude-opus-4` - Most capable
+- `claude-sonnet-4` - Balanced
+- `claude-haiku-4.5` - Fastest
+
+**Setup:**
+1. Get API key from [console.anthropic.com](https://console.anthropic.com/)
+2. Settings > AI > Anthropic API Key
+3. Select Claude as default provider
+
+### Google Gemini
+
+Access Gemini models:
+
+**Available Models:**
+- `gemini-2.5-pro` - Most advanced
+- `gemini-2.5-flash` - Fast, efficient
+- `gemini-2.5-flash-lite` - Ultra-fast
+
+**Setup:**
+1. Get API key from [makersuite.google.com](https://makersuite.google.com/app/apikey)
+2. Settings > AI > Gemini API Key
+3. Select Gemini as provider
+
+### Ollama (Local)
+
+Run models locally:
+
+**Supported Models:**
+- `llama3` - Meta's Llama 3
+- `mistral` - Mistral 7B
+- `codellama` - Code-specialized
+- Any Ollama-compatible model
+
+**Setup:**
+<Steps>
+  <Step title="Install Ollama">
+    Download from [ollama.ai](https://ollama.ai) and install
+  </Step>
+  
+  <Step title="Pull Models">
+    ```bash
+    ollama pull llama3
+    ```
+  </Step>
+  
+  <Step title="Configure SuperCmd">
+    Settings > AI > Ollama Base URL (default: `http://localhost:11434`)
+  </Step>
+</Steps>
+
+<Tip>
+  Ollama runs entirely on your machine. No API keys, no usage limits, complete privacy.
+</Tip>
+
+### OpenAI-Compatible APIs
+
+Use custom endpoints (LocalAI, FastChat, etc.):
+
+**Setup:**
+1. Settings > AI > Provider > OpenAI-Compatible
+2. Set Base URL (e.g., `http://localhost:8000`)
+3. Set API Key (if required)
+4. Set Model Name
+
+## AI Chat
+
+Full-screen chat interface for extended conversations:
+
+### Opening Chat
+
+1. Press SuperCmd hotkey
+2. Type "AI Chat" or search for it
+3. Press Enter to open
+
+Or use the keyboard shortcut: `Cmd+Shift+A`
+
+### Chat Features
+
+<CardGroup cols={2}>
+  <Card title="Streaming Responses" icon="water">
+    See AI responses as they're generated in real-time
+  </Card>
+  
+  <Card title="Context Memory" icon="brain">
+    Entire conversation history sent with each message
+  </Card>
+  
+  <Card title="Model Switching" icon="arrows-rotate">
+    Change models mid-conversation without losing history
+  </Card>
+  
+  <Card title="Export Chat" icon="download">
+    Save conversations as text or markdown
+  </Card>
+</CardGroup>
+
+### Chat Implementation
+
+Powered by `useAiChat` hook (src/renderer/src/hooks/useAiChat.ts):
+
+```typescript
+export interface AiChatMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: number;
+}
+
+// Streaming chat state
+const [messages, setMessages] = useState<AiChatMessage[]>([]);
+const [isStreaming, setIsStreaming] = useState(false);
+```
+
+## Inline AI Prompts
+
+Cursor-based AI assistance (src/renderer/src/hooks/useCursorPrompt.ts):
+
+### Quick Prompts
+
+1. Select text anywhere
+2. Press `Cmd+Shift+/`
+3. Type your prompt (e.g., "summarize this")
+4. AI response appears inline
+
+### Common Use Cases
+
+- **Rewrite**: "make this more professional"
+- **Summarize**: "summarize in 3 bullets"
+- **Expand**: "add more detail"
+- **Fix**: "fix grammar and spelling"
+- **Translate**: "translate to Spanish"
+
+<Tip>
+  Inline prompts automatically include selected text as context, so your prompts can be concise.
+</Tip>
+
+## AI Provider Architecture
+
+The unified AI provider (src/main/ai-provider.ts) handles all model interactions:
+
+### Model Routing
+
+```typescript
+// Automatic model routing based on prefix
+const MODEL_ROUTES: Record<string, ModelRoute> = {
+  'openai-gpt-4o': { provider: 'openai', modelId: 'gpt-4o' },
+  'anthropic-claude-opus': { provider: 'anthropic', modelId: 'claude-opus-4' },
+  'gemini-gemini-2.5-pro': { provider: 'gemini', modelId: 'gemini-2.5-pro' },
+  'ollama-llama3': { provider: 'ollama', modelId: 'llama3' },
+};
+```
+
+### Streaming Implementation
+
+All providers use async generators for streaming:
+
+```typescript
+export async function* streamAI(
+  config: AISettings,
+  options: AIRequestOptions
+): AsyncGenerator<string> {
+  // Yields text chunks as they arrive
+  // Provider-agnostic interface
+}
+```
+
+### Provider-Specific Details
+
+<Tabs>
+  <Tab title="OpenAI">
+    **Endpoint**: `https://api.openai.com/v1/chat/completions`
+    
+    **Format**: Server-Sent Events (SSE)
+    
+    **Parsing**:
+    ```typescript
+    parseSSE(response, (data) => {
+      const parsed = JSON.parse(data);
+      return parsed.choices?.[0]?.delta?.content || null;
+    })
+    ```
+  </Tab>
+  
+  <Tab title="Anthropic">
+    **Endpoint**: `https://api.anthropic.com/v1/messages`
+    
+    **Format**: SSE with `content_block_delta` events
+    
+    **Headers**: Requires `anthropic-version: 2023-06-01`
+  </Tab>
+  
+  <Tab title="Gemini">
+    **Endpoint**: `https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`
+    
+    **Format**: Single JSON response (non-streaming)
+    
+    **Parsing**: Extract from `candidates[0].content.parts`
+  </Tab>
+  
+  <Tab title="Ollama">
+    **Endpoint**: `http://localhost:11434/api/generate`
+    
+    **Format**: Newline-delimited JSON (NDJSON)
+    
+    **Local**: No authentication required
+  </Tab>
+</Tabs>
+
+## Extension AI API
+
+Extensions can use AI through the `@raycast/api`:
+
+### AI.ask() Function
+
+```typescript
+import { AI } from '@raycast/api';
+
+// Simple prompt
+const answer = await AI.ask("What is the capital of France?");
+
+// With options
+const answer = await AI.ask("Explain quantum computing", {
+  creativity: 0.8,  // Temperature (0-2)
+  model: "openai-gpt-4o"
+});
+```
+
+### useAI() Hook
+
+```typescript
+import { useAI } from '@raycast/utils';
+
+function MyExtension() {
+  const { data, isLoading } = useAI("Analyze this data", {
+    execute: true,
+    onData: (chunk) => console.log('Received:', chunk),
+    onError: (error) => console.error('AI error:', error)
+  });
+  
+  return <Detail markdown={data || 'Loading...'} />;
+}
+```
+
+### Availability Check
+
+```typescript
+import { environment, AI } from '@raycast/api';
+
+if (environment.canAccess(AI)) {
+  // AI is configured and available
+  const result = await AI.ask("Hello");
+} else {
+  // Prompt user to configure AI settings
+}
+```
+
+## Settings
+
+### Provider Configuration
+
+**Settings > AI**:
+
+- **Provider**: OpenAI, Anthropic, Gemini, Ollama, OpenAI-Compatible
+- **Default Model**: Select from available models
+- **API Keys**: Configure credentials
+- **Base URLs**: For Ollama and custom endpoints
+
+### Model Parameters
+
+**Creativity** (Temperature):
+- `0.0` - Deterministic, focused
+- `0.7` - Balanced (default)
+- `1.5` - Creative, varied
+- `2.0` - Maximum creativity
+
+**System Prompts**:
+Define default behavior for AI responses:
+
+```typescript
+const systemPrompt = "You are a helpful assistant specialized in coding.";
+
+AI.ask("How do I reverse a string in Python?", {
+  systemPrompt
+});
+```
+
+## Performance & Costs
+
+### Token Usage
+
+All providers charge by tokens (roughly 4 characters = 1 token):
+
+| Provider | Input Cost (1M tokens) | Output Cost (1M tokens) |
+|----------|------------------------|-------------------------|
+| GPT-4o Mini | $0.15 | $0.60 |
+| GPT-4o | $2.50 | $10.00 |
+| Claude Haiku | $0.25 | $1.25 |
+| Claude Sonnet | $3.00 | $15.00 |
+| Gemini Flash | $0.075 | $0.30 |
+| Ollama | Free | Free |
+
+<Info>
+  Prices as of March 2024. Check provider websites for current pricing.
+</Info>
+
+### Optimization Tips
+
+<CardGroup cols={2}>
+  <Card title="Use Mini Models" icon="gauge-simple-high">
+    Start with smaller models (GPT-4o-mini, Claude Haiku) for most tasks
+  </Card>
+  
+  <Card title="Limit Context" icon="scissors">
+    Keep conversation history short to reduce token usage
+  </Card>
+  
+  <Card title="Local for Privacy" icon="shield">
+    Use Ollama for sensitive data that shouldn't leave your machine
+  </Card>
+  
+  <Card title="Monitor Usage" icon="chart-line">
+    Check provider dashboards regularly to track costs
+  </Card>
+</CardGroup>
+
+## Error Handling
+
+AI provider errors are handled gracefully:
+
+```typescript
+try {
+  for await (const chunk of streamAI(config, options)) {
+    // Process chunk
+  }
+} catch (error) {
+  // Display user-friendly error
+  // Log technical details
+  console.error('AI Error:', formatExecError(error));
+}
+```
+
+**Common Errors:**
+- `401 Unauthorized` - Invalid API key
+- `429 Too Many Requests` - Rate limit exceeded
+- `503 Service Unavailable` - Provider outage
+- Network errors - Check internet connection
+
+## Privacy & Security
+
+### Data Transmission
+
+<Warning>
+  Prompts and responses are sent to third-party AI providers (OpenAI, Anthropic, Google). Review each provider's privacy policy before use.
+</Warning>
+
+**What's sent:**
+- Your prompt text
+- Conversation history (for chat)
+- Selected model and parameters
+
+**What's NOT sent:**
+- No personal identifiers
+- No app usage data
+- No file contents (unless explicitly selected)
+
+### Local-Only Option
+
+For complete privacy, use **Ollama**:
+
+- All processing happens locally
+- No data leaves your machine
+- No API keys required
+- No usage limits or costs
+
+<Tip>
+  Ollama is perfect for sensitive work, proprietary code, or personal data.
+</Tip>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="AI not available">
+    1. Check API key is configured (Settings > AI)
+    2. Verify provider is selected
+    3. For Ollama: ensure service is running (`ollama serve`)
+    4. Test API key on provider's website
+  </Accordion>
+  
+  <Accordion title="Slow responses">
+    - Check internet connection
+    - Try a faster model (mini/flash variants)
+    - Reduce conversation history length
+    - For Ollama: ensure sufficient RAM
+  </Accordion>
+  
+  <Accordion title="Rate limit errors">
+    - Wait and retry
+    - Check provider dashboard for quota
+    - Upgrade to higher tier if needed
+    - Switch to different provider temporarily
+  </Accordion>
+  
+  <Accordion title="Ollama connection failed">
+    1. Verify Ollama is running: `ollama list`
+    2. Check base URL in settings (default: `http://localhost:11434`)
+    3. Ensure firewall allows local connections
+    4. Try restarting Ollama service
+  </Accordion>
+</AccordionGroup>
+
+## Advanced Usage
+
+### Custom System Prompts
+
+Define assistant behavior:
+
+```typescript
+const systemPrompt = `You are an expert code reviewer.
+Provide concise, actionable feedback.
+Focus on bugs, performance, and readability.`;
+
+AI.ask(selectedCode, { systemPrompt });
+```
+
+### Streaming with Callbacks
+
+```typescript
+const { data, isLoading } = useAI(prompt, {
+  execute: true,
+  onWillExecute: () => {
+    console.log('Starting AI request...');
+  },
+  onData: (chunk) => {
+    // Process each chunk as it arrives
+    updateUI(chunk);
+  },
+  onError: (error) => {
+    showToast({ title: 'AI Error', message: error.message });
+  }
+});
+```
+
+### Abort Requests
+
+```typescript
+const controller = new AbortController();
+
+streamAI(config, {
+  prompt: "Long running task...",
+  signal: controller.signal
+});
+
+// Later: cancel the request
+controller.abort();
+```

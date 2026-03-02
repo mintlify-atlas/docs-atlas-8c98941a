@@ -1,0 +1,381 @@
+---
+title: Text-to-Speech (Read)
+description: Listen to text read aloud with high-quality voices
+icon: volume
+---
+
+SuperCmd's text-to-speech feature (SuperCmd Read) converts selected text into natural-sounding speech, perfect for proofreading, accessibility, or consuming content hands-free.
+
+## Overview
+
+SuperCmd Read supports multiple TTS engines:
+
+- **Edge TTS**: Microsoft's neural voices (free, 400+ voices)
+- **ElevenLabs**: Ultra-realistic AI voices (requires API key)
+- **System TTS**: Native macOS voices
+
+<Info>
+  Edge TTS is the default engine and requires no configuration. It provides excellent quality at no cost.
+</Info>
+
+## Quick Start
+
+<Steps>
+  <Step title="Select Text">
+    Highlight any text in any application
+  </Step>
+  
+  <Step title="Trigger Read">
+    Press `Cmd+Shift+R` (or your configured Read hotkey)
+  </Step>
+  
+  <Step title="Control Playback">
+    A floating control panel appears in the top-right corner with play/pause/stop controls
+  </Step>
+  
+  <Step title="Adjust Settings">
+    Change voice, speed, and other options from the control panel
+  </Step>
+</Steps>
+
+## TTS Engines
+
+### Edge TTS (Recommended)
+
+Microsoft's Edge TTS provides high-quality neural voices for free:
+
+**Features:**
+- 400+ voices across 100+ languages
+- Natural prosody and intonation
+- No API key required
+- No usage limits
+- Excellent quality
+
+**Popular Voices:**
+- `en-US-EricNeural` (Male, American English)
+- `en-US-JennyNeural` (Female, American English)
+- `en-GB-RyanNeural` (Male, British English)
+- `en-AU-NatashaNeural` (Female, Australian English)
+
+### ElevenLabs
+
+Ultra-realistic AI voices for premium quality:
+
+**Features:**
+- Studio-quality voice synthesis
+- Emotional expression
+- Custom voice cloning (paid tiers)
+- Multiple languages
+
+**Configuration:**
+1. Sign up at [elevenlabs.io](https://elevenlabs.io)
+2. Get your API key from the dashboard
+3. Settings > AI > ElevenLabs API Key
+4. Settings > AI > Text-to-Speech Model > Select ElevenLabs voice
+
+**Built-in Voices:**
+- Rachel (Female, warm)
+- Antoni (Male, calm)
+- Bella (Female, friendly)
+- Josh (Male, energetic)
+
+<Warning>
+  ElevenLabs is a paid service. Free tier includes 10,000 characters/month. Check pricing at [elevenlabs.io/pricing](https://elevenlabs.io/pricing).
+</Warning>
+
+### System TTS
+
+Uses macOS built-in voices:
+
+**Features:**
+- Works offline
+- No external dependencies
+- Lower quality than neural voices
+- Limited voice options
+
+## Using SuperCmd Read
+
+### Read Overlay
+
+The Read overlay is a floating control panel (src/renderer/src/hooks/useSpeakManager.ts):
+
+**Window Specs:**
+- **Position**: Top-right corner
+- **Size**: 520×112 pixels
+- **Always on top**: Yes
+- **Auto-hide**: Closes when playback completes
+
+**Controls:**
+- Play/Pause button
+- Stop button
+- Progress indicator
+- Voice selector
+- Speed control
+- Close button
+
+### Voice Selection
+
+From the Read overlay, click the voice dropdown to choose from available voices:
+
+```typescript
+// Voice options are built dynamically (src/renderer/src/hooks/useSpeakManager.ts:271)
+readVoiceOptions = buildReadVoiceOptions(
+  edgeTtsVoices,      // 400+ Edge voices
+  currentVoice,       // Selected voice
+  configuredVoice     // User preference
+)
+```
+
+### Playback Speed
+
+Adjust speaking rate:
+
+- **Slower**: -50% to 0%
+- **Normal**: +0%
+- **Faster**: +10% to +100%
+
+<Tabs>
+  <Tab title="Slow">
+    `-50%` - Good for language learning or difficult content
+  </Tab>
+  <Tab title="Normal">
+    `+0%` - Natural speaking pace
+  </Tab>
+  <Tab title="Fast">
+    `+50%` - Quick review or familiar content
+  </Tab>
+</Tabs>
+
+## Settings
+
+### Default Voice
+
+Set your preferred voice:
+
+1. **Settings** > **AI** tab
+2. **Text-to-Speech Model**: Select engine
+3. **Edge TTS Voice**: Choose specific voice (if using Edge TTS)
+4. **ElevenLabs Voice**: Choose voice (if using ElevenLabs)
+
+### Keyboard Shortcut
+
+Customize the Read hotkey:
+
+1. **Settings** > **Hotkeys**
+2. **Read Selected Text**: Set custom shortcut (default: `Cmd+Shift+R`)
+
+### Auto-Resume
+
+Configure behavior when switching voices mid-playback (src/renderer/src/hooks/useSpeakManager.ts:261):
+
+```typescript
+speakUpdateOptions({
+  voice: newVoice,
+  restartCurrent: true  // Resume from current position
+})
+```
+
+## Advanced Features
+
+### Word Highlighting
+
+SuperCmd Read tracks the current word being spoken:
+
+```typescript
+export interface SpeakStatus {
+  state: 'idle' | 'loading' | 'speaking' | 'done' | 'error';
+  text: string;       // Full text being read
+  index: number;      // Current chunk index
+  total: number;      // Total chunks
+  wordIndex?: number; // Current word position
+}
+```
+
+This enables visual highlighting of the current word in future updates.
+
+### Text Chunking
+
+Long text is automatically split into manageable chunks:
+
+1. Text divided into sentences or paragraphs
+2. Each chunk processed separately
+3. Seamless playback across chunks
+4. Progress indicator shows overall position
+
+### Error Handling
+
+Graceful fallbacks for API issues:
+
+```typescript
+// State machine (src/renderer/src/hooks/useSpeakManager.ts:59)
+idle → loading → speaking → done
+  ↓
+error (with message)
+```
+
+Errors display in the overlay with actionable messages.
+
+## Language Support
+
+### Edge TTS Languages
+
+Supports 100+ languages including:
+
+- English (US, UK, AU, CA, IE, IN, NZ, ZA)
+- Spanish (ES, MX, AR, CO)
+- French (FR, CA)
+- German (DE, AT, CH)
+- Chinese (Mandarin, Cantonese)
+- Japanese, Korean, Arabic, Hindi, and more
+
+### ElevenLabs Languages
+
+Supports:
+- English, Spanish, French, German
+- Portuguese, Italian, Polish
+- And expanding
+
+<Tip>
+  Edge TTS automatically detects language from text, so you can read multilingual content without changing settings.
+</Tip>
+
+## Performance
+
+### Edge TTS Performance
+
+- **Latency**: ~500ms initial
+- **Streaming**: Real-time chunk playback
+- **Network**: ~5 KB/s audio stream
+- **Offline**: Not available (requires internet)
+
+### ElevenLabs Performance
+
+- **Latency**: ~1-2s initial
+- **Quality**: Highest available
+- **Network**: ~10 KB/s audio stream
+- **Caching**: Frequently used phrases cached
+
+## Integration with Workflow
+
+### Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Proofreading" icon="spell-check">
+    Catch errors by hearing your writing read aloud
+  </Card>
+  
+  <Card title="Accessibility" icon="universal-access">
+    Read web pages, documents, emails hands-free
+  </Card>
+  
+  <Card title="Language Learning" icon="book">
+    Hear correct pronunciation in foreign languages
+  </Card>
+  
+  <Card title="Multitasking" icon="list-check">
+    Listen to articles while working on other tasks
+  </Card>
+</CardGroup>
+
+### Reading Long Documents
+
+1. Select all text (`Cmd+A`)
+2. Trigger Read (`Cmd+Shift+R`)
+3. Use speed controls to adjust pace
+4. Pause/resume as needed
+
+### Reading Web Content
+
+1. Select article text
+2. Press Read hotkey
+3. Continue browsing while listening
+4. Overlay stays on top
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="No audio output">
+    1. Check system volume
+    2. Verify output device in System Settings > Sound
+    3. Try a different voice
+    4. Restart SuperCmd
+  </Accordion>
+  
+  <Accordion title="Choppy playback">
+    - Check internet connection stability
+    - Try reducing playback speed
+    - Close bandwidth-heavy applications
+    - Switch to a different TTS engine
+  </Accordion>
+  
+  <Accordion title="Wrong language spoken">
+    - Edge TTS auto-detects language from text
+    - Ensure text is in a supported language
+    - Try manually selecting a language-specific voice
+  </Accordion>
+  
+  <Accordion title="ElevenLabs not working">
+    1. Verify API key in Settings > AI
+    2. Check ElevenLabs quota/billing
+    3. Ensure API key has correct permissions
+    4. Test API key on ElevenLabs website
+  </Accordion>
+</AccordionGroup>
+
+## Privacy & Costs
+
+### Edge TTS
+
+<Info>
+  Edge TTS is free and has no usage limits. Text is sent to Microsoft servers for synthesis. Microsoft may log requests for service improvement.
+</Info>
+
+### ElevenLabs
+
+**Pricing (as of 2024):**
+- Free: 10,000 characters/month
+- Starter: $5/month (30,000 characters)
+- Creator: $22/month (100,000 characters)
+- Pro: $99/month (500,000 characters)
+
+<Warning>
+  Monitor your ElevenLabs usage at [elevenlabs.io/usage](https://elevenlabs.io/usage) to avoid unexpected charges.
+</Warning>
+
+## Keyboard Shortcuts
+
+| Action | Shortcut |
+|--------|----------|
+| Read Selected Text | `Cmd+Shift+R` |
+| Pause/Resume | `Space` (in overlay) |
+| Stop Reading | `Escape` |
+| Close Overlay | `Cmd+W` |
+| Increase Speed | `]` |
+| Decrease Speed | `[` |
+
+## Technical Details
+
+### Voice Cache Management
+
+ElevenLabs voices are cached to reduce API calls (src/renderer/src/utils/voice-cache.ts):
+
+```typescript
+function getCachedElevenLabsVoices(): ElevenLabsVoice[] | null {
+  // Shared cache between speak and settings views
+  // 24-hour TTL
+  // Cleared on API errors
+}
+```
+
+### Audio Streaming
+
+TTS audio is streamed in real-time:
+
+1. Text sent to TTS API
+2. Audio chunks received progressively
+3. Playback begins immediately
+4. Remaining chunks buffered in background
+
+<Tip>
+  This provides near-instant playback start, even for long text.
+</Tip>

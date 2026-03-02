@@ -1,0 +1,354 @@
+---
+title: Hotkeys
+description: Customize keyboard shortcuts and create per-command hotkeys
+---
+
+## Overview
+
+SuperCmd supports global keyboard shortcuts for:
+
+1. **Global launcher hotkey** — Open SuperCmd from anywhere
+2. **Per-command hotkeys** — Launch specific commands directly
+3. **Hyper Key** — Remap a modifier key to Cmd+Ctrl+Option+Shift
+4. **In-app shortcuts** — Navigate within SuperCmd
+
+<Info>
+All hotkeys work system-wide when SuperCmd is running in the background.
+</Info>
+
+## Global Launcher Hotkey
+
+The primary shortcut to open SuperCmd.
+
+**Default:** `Alt+Space` (Option+Space)
+
+**Configure:**
+
+1. Open SuperCmd
+2. Search for "Settings"
+3. Navigate to **General → Global Shortcut**
+4. Click the field and press your desired key combination
+
+**Popular alternatives:**
+
+| Shortcut | Notes |
+|---|---|
+| `Command+Space` | Requires disabling Spotlight in System Settings |
+| `Option+Space` | Default (Alt+Space) |
+| `Control+Space` | May conflict with input source switching |
+| `Command+Shift+Space` | Good alternative if Spotlight is enabled |
+| `Fn+Space` | Uses the Function key (requires Input Monitoring) |
+
+**Technical details:**
+
+SuperCmd uses Electron's `globalShortcut.register()` API, which requires **Input Monitoring permission**.
+
+**Source:** `src/main/main.ts:186-205`
+
+```typescript
+globalShortcut.register(globalShortcut, () => {
+  if (mainWindow.isVisible()) {
+    mainWindow.hide();
+  } else {
+    mainWindow.show();
+    mainWindow.focus();
+  }
+});
+```
+
+---
+
+## Per-Command Hotkeys
+
+Assign global shortcuts to launch specific commands instantly, bypassing the launcher UI.
+
+### Setting Up Command Hotkeys
+
+**Via Settings UI:**
+
+<Steps>
+  <Step title="Open a command">
+    Search for any command in SuperCmd
+  </Step>
+  <Step title="Open Actions panel">
+    Press `Cmd+K` or click the Actions icon
+  </Step>
+  <Step title="Choose 'Set Hotkey'">
+    Select the action and press your desired key combination
+  </Step>
+</Steps>
+
+**Via settings.json:**
+
+```json
+{
+  "commandHotkeys": {
+    "supercmd-clipboard-history": "Command+Shift+V",
+    "supercmd-window-management": "Control+Option+W",
+    "supercmd-snippets": "Command+Shift+S",
+    "com.raycast.extension.calculator": "Command+Shift+C"
+  }
+}
+```
+
+### Command ID Format
+
+- **Built-in commands:** `supercmd-{feature}`
+  - Example: `supercmd-clipboard-history`
+- **Extension commands:** `{extension-name}#{command-name}`
+  - Example: `github#search-repositories`
+- **Script commands:** `script:{filename}`
+  - Example: `script:toggle-wifi.sh`
+
+### Finding Command IDs
+
+1. Enable debug mode in Settings
+2. Open DevTools (Cmd+Option+I)
+3. Run a command
+4. Check console logs for the command ID
+
+Or inspect `~/Library/Application Support/SuperCmd/settings.json` → `recentCommands` array.
+
+---
+
+## Hyper Key
+
+SuperCmd includes a built-in **Hyper Key** feature that remaps a physical key to act as `Cmd+Ctrl+Option+Shift` simultaneously.
+
+### Use Cases
+
+- Remap **Caps Lock** to Hyper
+- Remap **Right Option** to Hyper
+- Create super-powerful shortcuts without finger gymnastics
+
+### Setup
+
+<Steps>
+  <Step title="Choose source key">
+    Common choices:
+    - Caps Lock (keycode 57)
+    - Right Option (keycode 61)
+    - Right Command (keycode 54)
+  </Step>
+  <Step title="Configure SuperCmd">
+    ```json
+    {
+      "hyperKeySource": 57,
+      "hyperKeyIncludeShift": false,
+      "hyperKeyQuickPressAction": "escape"
+    }
+    ```
+  </Step>
+  <Step title="Test">
+    Press your Hyper Key + any letter to create a unique shortcut
+  </Step>
+</Steps>
+
+### Hyper Key Settings
+
+<ParamField path="hyperKeySource" type="number | null" default="null">
+  Keycode of the physical key to remap
+</ParamField>
+
+<ParamField path="hyperKeyIncludeShift" type="boolean" default="false">
+  Include Shift in the Hyper combination (Cmd+Ctrl+Option+Shift)
+</ParamField>
+
+<ParamField path="hyperKeyQuickPressAction" type="string" default="escape">
+  Action when Hyper Key is tapped (not held):
+  - `escape` — Send Escape key
+  - `toggle-caps-lock` — Toggle Caps Lock
+  - `none` — Do nothing
+</ParamField>
+
+<ParamField path="hyperReplaceModifierGlyphsWithHyper" type="boolean" default="false">
+  Show shortcut badges as "⌘Hyper" instead of "⌘⌥⌃⇧"
+</ParamField>
+
+### How It Works
+
+SuperCmd monitors keyboard events using `CGEventTapCreate()` and:
+
+1. Intercepts the source key press
+2. Suppresses the original key event
+3. Injects Cmd+Ctrl+Option (+ Shift if enabled)
+4. On release, removes all modifiers
+5. On quick tap, sends the quick-press action
+
+**Source:** `src/native/hotkey-hold-monitor.swift`, `src/main/main.ts` (hyper-key IPC handlers)
+
+<Warning>
+Hyper Key requires **Accessibility** and **Input Monitoring** permissions.
+</Warning>
+
+---
+
+## In-App Shortcuts
+
+Keyboard shortcuts within SuperCmd:
+
+### Global Navigation
+
+| Shortcut | Action |
+|---|---|
+| `Cmd+K` | Open Actions panel |
+| `Cmd+,` | Open Settings |
+| `Cmd+Shift+P` | Command palette (extensions) |
+| `Escape` | Close window / go back |
+| `Cmd+W` | Close window |
+
+### Search & Filtering
+
+| Shortcut | Action |
+|---|---|
+| `↑` / `↓` | Navigate results |
+| `Enter` | Execute selected command |
+| `Cmd+Enter` | Execute with modifiers |
+| `Tab` | Autocomplete (if available) |
+| `Cmd+Backspace` | Clear search |
+
+### List & Grid Views
+
+| Shortcut | Action |
+|---|---|
+| `Cmd+↓` | Show detail panel |
+| `Cmd+Y` | Quick Look (if supported) |
+| `Cmd+C` | Copy selected item |
+| `Cmd+D` | Toggle detail sidebar |
+
+### Form Views
+
+| Shortcut | Action |
+|---|---|
+| `Tab` / `Shift+Tab` | Navigate fields |
+| `Enter` | Submit form |
+| `Cmd+Enter` | Submit with metadata |
+
+### Extension Shortcuts
+
+Extensions can define custom shortcuts using the `Keyboard.Shortcut` type:
+
+```typescript
+import { Action, ActionPanel } from "@raycast/api";
+
+<Action
+  title="Open"
+  onAction={() => console.log("Opened")}
+  shortcut={{ modifiers: ["cmd"], key: "o" }}
+/>
+```
+
+**Supported modifiers:**
+- `cmd` — Command
+- `ctrl` — Control
+- `opt` / `alt` — Option
+- `shift` — Shift
+
+---
+
+## Shortcut Format
+
+SuperCmd uses Electron's accelerator syntax:
+
+```
+Modifier+Modifier+Key
+```
+
+**Examples:**
+- `Command+Shift+V`
+- `Control+Option+W`
+- `Alt+Space`
+- `Cmd+K`
+
+**Modifiers:**
+- `Command` / `Cmd` / `⌘`
+- `Control` / `Ctrl` / `⌃`
+- `Option` / `Alt` / `⌥`
+- `Shift` / `⇧`
+
+**Special keys:**
+- `Space`, `Tab`, `Enter`, `Escape`
+- `Up`, `Down`, `Left`, `Right`
+- `F1`–`F24`
+- `A`–`Z`, `0`–`9`
+
+---
+
+## Conflict Detection
+
+SuperCmd does **not** automatically detect conflicts with system shortcuts or other apps.
+
+**Common conflicts:**
+
+| Shortcut | System Use |
+|---|---|
+| `Command+Space` | Spotlight |
+| `Control+Space` | Input source switching |
+| `Command+Tab` | App switcher |
+| `Command+Option+D` | Show/hide Dock |
+
+<Tip>
+Check **System Settings → Keyboard → Keyboard Shortcuts** for existing system shortcuts.
+</Tip>
+
+---
+
+## Troubleshooting
+
+<Accordion title="Global hotkey doesn't work">
+  1. Ensure **Input Monitoring** permission is granted
+  2. Check for conflicts with other apps (BetterTouchTool, Alfred, Keyboard Maestro)
+  3. Try a different key combination
+  4. Restart SuperCmd
+  5. Check console logs for registration errors
+</Accordion>
+
+<Accordion title="Command hotkey doesn't trigger">
+  1. Verify the command ID is correct in `settings.json`
+  2. Ensure the extension is enabled
+  3. Check for conflicts with system shortcuts
+  4. Try unregistering and re-registering the hotkey
+</Accordion>
+
+<Accordion title="Hyper Key doesn't work">
+  1. Grant **Accessibility** permission
+  2. Grant **Input Monitoring** permission
+  3. Restart SuperCmd after granting permissions
+  4. Check `hyperKeySource` keycode is correct
+  5. Test with debug mode enabled (Cmd+Option+I)
+</Accordion>
+
+<Accordion title="Shortcuts work inconsistently">
+  This can happen if:
+  1. Another app is capturing the same shortcut
+  2. macOS Secure Input is enabled (check with Karabiner-Elements EventViewer)
+  3. The app is running in the background but not receiving events
+  
+  Solution: Use more unique shortcuts (e.g., Hyper Key combinations).
+</Accordion>
+
+<Accordion title="Can't use Function keys (F1-F12)">
+  macOS reserves F1-F12 for system functions by default:
+  1. Go to **System Settings → Keyboard**
+  2. Enable **Use F1, F2, etc. keys as standard function keys**
+  3. Or use `Fn+F1` in shortcuts
+</Accordion>
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Settings" icon="gear" href="/configuration/settings">
+    All configuration options
+  </Card>
+  <Card title="Permissions" icon="shield" href="/configuration/permissions">
+    Required macOS permissions
+  </Card>
+  <Card title="Extensions" icon="puzzle-piece" href="/extensions/overview">
+    Install and manage extensions
+  </Card>
+  <Card title="Window Management" icon="window-restore" href="/features/window-management">
+    Use window tiling hotkeys
+  </Card>
+</CardGroup>

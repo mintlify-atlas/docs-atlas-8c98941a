@@ -1,0 +1,708 @@
+---
+title: 'Native Modules'
+description: 'Swift-based native integrations for speech recognition, window management, and input monitoring'
+---
+
+## Overview
+
+SuperCmd uses compiled Swift binaries for macOS-specific features that require low-level system access. These native modules run as separate processes and communicate with the main Electron process via stdout/stdin or IPC.
+
+<Note>
+All native modules live in `src/native/` and are compiled to standalone executables during the build process. They are unpacked from the asar archive for execution.
+</Note>
+
+## Architecture
+
+Native modules follow a consistent architecture:
+
+<Steps>
+  <Step title="Compilation">
+    Swift source files are compiled to native binaries using swiftc
+  </Step>
+  <Step title="Distribution">
+    Binaries are placed in `dist/native/` and unpacked from app.asar
+  </Step>
+  <Step title="Execution">
+    Main process spawns binaries as child processes
+  </Step>
+  <Step title="Communication">
+    JSON messages are exchanged via stdout/stdin
+  </Step>
+</Steps>
+
+### Binary Resolution
+
+SuperCmd resolves native binary paths with asar awareness:
+
+```typescript
+function resolvePackagedUnpackedPath(candidatePath: string): string {
+  if (!app.isPackaged) return candidatePath;
+  if (!candidatePath.includes('app.asar')) return candidatePath;
+  
+  // Swap app.asar for app.asar.unpacked
+  const unpackedPath = candidatePath.replace('app.asar', 'app.asar.unpacked');
+  
+  if (fs.existsSync(unpackedPath)) {
+    return unpackedPath;
+  }
+  
+  return candidatePath;
+}
+
+function getNativeBinaryPath(name: string): string {
+  const base = path.join(__dirname, '..', 'native', name);
+  return resolvePackagedUnpackedPath(base);
+}
+```
+
+## Snippet Expander
+
+### Purpose
+
+Monitors keyboard input and detects snippet keywords in real-time.
+
+### Implementation
+
+<Tabs>
+  <Tab title="Swift Source">
+    ```swift
+    // snippet-expander.swift
+    import Foundation
+    import AppKit
+    import ApplicationServices
+    
+    struct EventPayload: Encodable {
+      let keyword: String
+      let delimiter: String
+    }
+    
+    // Parse keywords from JSON argument
+    let keywords = Set(parsed.map { $0.lowercased() })
+    let sortedKeywords = keywords.sorted { $0.count > $1.count }
+    let maxKeywordLength = max(sortedKeywords.first?.count ?? 1, 1)
+    
+    var currentToken = ""
+    
+    // Create keyboard event tap
+    let eventTap = CGEvent.tapCreate(
+      tap: .cgSessionEventTap,
+      place: .headInsertEventTap,
+      options: .defaultTap,
+      eventsOfInterest: (1 << CGEventType.keyDown.rawValue),
+      callback: { proxy, type, event, _ in
+        let chars = extractTypedCharacters(from: event)
+        
+        for char in chars {
+          processCharacter(char)
+        }
+        
+        return Unmanaged.passRetained(event)
+      },
+      userInfo: nil
+    )
+    
+    // Emit JSON when keyword detected
+    func emit(keyword: String, delimiter: String) {
+      let payload = EventPayload(keyword: keyword, delimiter: delimiter)
+      let encoded = try! JSONEncoder().encode(payload)
+      let line = String(data: encoded, encoding: .utf8)!
+      print(line)
+      fflush(stdout)
+    }
+    
+    RunLoop.main.run()
+    ```
+  </Tab>
+  
+  <Tab title="Main Process Integration">
+    ```typescript
+    import { spawn } from 'child_process';
+    
+    let snippetExpanderProcess: ChildProcess | null = null;
+    
+    function startSnippetExpander(keywords: string[]) {
+      const binaryPath = getNativeBinaryPath('snippet-expander');
+      const keywordsJson = JSON.stringify(keywords);
+      
+      snippetExpanderProcess = spawn(binaryPath, [keywordsJson], {
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+      
+      let buffer = '';
+      
+      snippetExpanderProcess.stdout.on('data', (chunk) => {
+        buffer += chunk.toString();
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        
+        for (const line of lines) {
+          if (line === 'snippet-expander-ready') {
+            console.log('Snippet expander started');
+            continue;
+          }
+          
+          try {
+            const payload = JSON.parse(line);
+            handleSnippetDetected(payload.keyword, payload.delimiter);
+          } catch (error) {
+            console.error('Invalid JSON from snippet expander:', line);
+          }
+        }
+      });
+      
+      snippetExpanderProcess.on('exit', (code) => {
+        console.log('Snippet expander exited:', code);
+        snippetExpanderProcess = null;
+      });
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Features
+
+<Accordion title="Intelligent Token Matching">
+  - Tracks a sliding window of typed characters
+  - Matches longest keywords first
+  - Supports custom delimiter characters
+  - Ignores modifier key combinations (Cmd, Ctrl, Alt)
+</Accordion>
+
+<Accordion title="Character Set Customization">
+  ```swift
+  var allowedChars = CharacterSet.alphanumerics
+    .union(CharacterSet(charactersIn: "-_"))
+  
+  var delimiters = CharacterSet.whitespacesAndNewlines
+    .union(CharacterSet(charactersIn: ".,!?;:()[]{}<>/\\|@#$%^&*+=`~\"'"))
+  
+  // Allow any symbol characters in configured keywords
+  for keyword in keywords {
+    for scalar in keyword.unicodeScalars {
+      allowedChars.insert(scalar)
+      delimiters.remove(scalar)
+    }
+  }
+  ```
+</Accordion>
+
+## Hotkey Hold Monitor
+
+### Purpose
+
+Monitors a specific key combination and emits events when pressed and released.
+
+### Implementation
+
+<Tabs>
+  <Tab title="Swift Source">
+    ```swift
+    // hotkey-hold-monitor.swift
+    import Foundation
+    import CoreGraphics
+    
+    final class MonitorState {
+      let targetKeyCode: CGKeyCode
+      let needCmd: Bool
+      let needCtrl: Bool
+      let needAlt: Bool
+      let needShift: Bool
+      let needFn: Bool
+      var isPressed: Bool
+      
+      init(targetKeyCode: CGKeyCode, needCmd: Bool, needCtrl: Bool, 
+           needAlt: Bool, needShift: Bool, needFn: Bool) {
+        self.targetKeyCode = targetKeyCode
+        self.needCmd = needCmd
+        self.needCtrl = needCtrl
+        self.needAlt = needAlt
+        self.needShift = needShift
+        self.needFn = needFn
+        self.isPressed = false
+      }
+    }
+    
+    func modifiersSatisfied(flags: CGEventFlags, state: MonitorState) -> Bool {
+      let cmd = flags.contains(.maskCommand)
+      let ctrl = flags.contains(.maskControl)
+      let alt = flags.contains(.maskAlternate)
+      let shift = flags.contains(.maskShift)
+      let fn = flags.contains(.maskSecondaryFn)
+      
+      return cmd == state.needCmd && ctrl == state.needCtrl &&
+             alt == state.needAlt && shift == state.needShift &&
+             fn == state.needFn
+    }
+    
+    let callback: CGEventTapCallBack = { _, type, event, userInfo in
+      let state = Unmanaged<MonitorState>
+        .fromOpaque(userInfo!)
+        .takeUnretainedValue()
+      
+      let flags = event.flags
+      let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
+      
+      if !state.isPressed {
+        if keyCode == state.targetKeyCode && 
+           modifiersSatisfied(flags: flags, state: state) {
+          state.isPressed = true
+          emit(["pressed": true])
+        }
+        return Unmanaged.passUnretained(event)
+      }
+      
+      if type == .keyUp && keyCode == state.targetKeyCode {
+        emit(["released": true, "reason": "key-up"])
+        exit(0)
+      }
+      
+      if !modifiersSatisfied(flags: flags, state: state) {
+        emit(["released": true, "reason": "modifier-up"])
+        exit(0)
+      }
+      
+      return Unmanaged.passUnretained(event)
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Usage">
+    ```typescript
+    // Monitor Fn+D hold for dictation
+    function startWhisperHoldWatcher() {
+      const binaryPath = getNativeBinaryPath('hotkey-hold-monitor');
+      
+      // Arguments: keyCode, cmd, ctrl, alt, shift, fn
+      // Fn+D = keyCode 2, no cmd/ctrl/alt/shift, yes fn
+      whisperHoldWatcherProcess = spawn(binaryPath, [
+        '2',    // D key
+        '0',    // no cmd
+        '0',    // no ctrl
+        '0',    // no alt
+        '0',    // no shift
+        '1',    // yes fn
+      ], {
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+      
+      whisperHoldWatcherProcess.stdout.on('data', (chunk) => {
+        const lines = chunk.toString().split('\n').filter(Boolean);
+        
+        for (const line of lines) {
+          const event = JSON.parse(line);
+          
+          if (event.pressed) {
+            console.log('Hotkey pressed');
+            showWhisperWindow();
+          }
+          
+          if (event.released) {
+            console.log('Hotkey released:', event.reason);
+            hideWhisperWindow();
+          }
+        }
+      });
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Features
+
+<CardGroup cols={2}>
+  <Card title="Precise Modifier Detection" icon="keyboard">
+    Tracks exact modifier key states (Cmd, Ctrl, Alt, Shift, Fn)
+  </Card>
+  <Card title="Release Reasons" icon="info">
+    Distinguishes between key-up, modifier-up, and flags-changed events
+  </Card>
+  <Card title="Low Latency" icon="bolt">
+    Direct event tap at kernel level for minimal delay
+  </Card>
+  <Card title="Process Termination" icon="power-off">
+    Exits automatically when key is released
+  </Card>
+</CardGroup>
+
+## Speech Recognizer
+
+### Purpose
+
+Real-time speech-to-text using Apple's Speech framework.
+
+### Implementation
+
+```swift
+// speech-recognizer.swift
+import Foundation
+import Speech
+
+class SpeechRecognizerDelegate: NSObject, SFSpeechRecognizerDelegate {
+  func speechRecognizer(
+    _ speechRecognizer: SFSpeechRecognizer,
+    availabilityDidChange available: Bool
+  ) {
+    emit(["available": available])
+  }
+}
+
+let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+let audioEngine = AVAudioEngine()
+
+// Request microphone access
+AVAudioSession.sharedInstance().requestRecordPermission { granted in
+  if !granted {
+    emit(["error": "Microphone access denied"])
+    exit(1)
+  }
+}
+
+// Start recognition
+let recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
+recognitionRequest.shouldReportPartialResults = true
+
+let recognitionTask = recognizer.recognitionTask(
+  with: recognitionRequest
+) { result, error in
+  if let result = result {
+    emit([
+      "text": result.bestTranscription.formattedString,
+      "isFinal": result.isFinal
+    ])
+    
+    if result.isFinal {
+      audioEngine.stop()
+      audioEngine.inputNode.removeTap(onBus: 0)
+      exit(0)
+    }
+  }
+  
+  if let error = error {
+    emit(["error": error.localizedDescription])
+    exit(1)
+  }
+}
+
+// Capture audio
+let inputNode = audioEngine.inputNode
+let recordingFormat = inputNode.outputFormat(forBus: 0)
+
+inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) {
+  buffer, _ in
+  recognitionRequest.append(buffer)
+}
+
+audioEngine.prepare()
+try audioEngine.start()
+
+emit(["status": "recording"])
+RunLoop.main.run()
+```
+
+### Integration
+
+```typescript
+function startWhisperRecognition(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const binaryPath = getNativeBinaryPath('speech-recognizer');
+    const proc = spawn(binaryPath, [], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    
+    let partialText = '';
+    let buffer = '';
+    
+    proc.stdout.on('data', (chunk) => {
+      buffer += chunk.toString();
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      
+      for (const line of lines) {
+        const event = JSON.parse(line);
+        
+        if (event.status === 'recording') {
+          console.log('Whisper: Recording started');
+        }
+        
+        if (event.text) {
+          partialText = event.text;
+          
+          // Send to renderer for live preview
+          mainWindow?.webContents.send('whisper-partial', {
+            text: partialText,
+          });
+          
+          if (event.isFinal) {
+            resolve(partialText);
+          }
+        }
+        
+        if (event.error) {
+          reject(new Error(event.error));
+        }
+      }
+    });
+    
+    proc.on('exit', (code) => {
+      if (code !== 0 && !partialText) {
+        reject(new Error('Speech recognition failed'));
+      }
+    });
+  });
+}
+```
+
+## Window Management
+
+### Window Adjustment
+
+Native Swift module for precise window positioning:
+
+```swift
+// window-adjust.swift
+import Cocoa
+
+func setWindowBounds(windowId: Int, x: Int, y: Int, width: Int, height: Int) {
+  let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements)
+  let windowList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) 
+    as! [[String: Any]]
+  
+  for info in windowList {
+    guard let pid = info[kCGWindowOwnerPID as String] as? Int,
+          let id = info[kCGWindowNumber as String] as? Int,
+          id == windowId else { continue }
+    
+    let app = NSRunningApplication(processIdentifier: pid_t(pid))
+    guard let app = app else { continue }
+    
+    let axApp = AXUIElementCreateApplication(pid_t(pid))
+    var windowRef: AnyObject?
+    
+    AXUIElementCopyAttributeValue(
+      axApp,
+      kAXWindowsAttribute as CFString,
+      &windowRef
+    )
+    
+    guard let windows = windowRef as? [AXUIElement] else { continue }
+    
+    for window in windows {
+      // Set position
+      var position = CGPoint(x: x, y: y)
+      let positionValue = AXValueCreate(.cgPoint, &position)
+      AXUIElementSetAttributeValue(
+        window,
+        kAXPositionAttribute as CFString,
+        positionValue!
+      )
+      
+      // Set size
+      var size = CGSize(width: width, height: height)
+      let sizeValue = AXValueCreate(.cgSize, &size)
+      AXUIElementSetAttributeValue(
+        window,
+        kAXSizeAttribute as CFString,
+        sizeValue!
+      )
+      
+      emit(["success": true])
+      return
+    }
+  }
+  
+  emit(["error": "Window not found"])
+}
+```
+
+## Color Picker
+
+Native color picker using NSColorPanel:
+
+```swift
+// color-picker.swift
+import Cocoa
+
+class ColorPickerDelegate: NSObject, NSWindowDelegate {
+  func windowWillClose(_ notification: Notification) {
+    let colorPanel = NSColorPanel.shared
+    let color = colorPanel.color
+    
+    emit([
+      "hex": color.hexString,
+      "rgb": [
+        "r": Int(color.redComponent * 255),
+        "g": Int(color.greenComponent * 255),
+        "b": Int(color.blueComponent * 255),
+      ],
+    ])
+    
+    exit(0)
+  }
+}
+
+let delegate = ColorPickerDelegate()
+let colorPanel = NSColorPanel.shared
+colorPanel.delegate = delegate
+colorPanel.isContinuous = false
+colorPanel.showsAlpha = true
+colorPanel.makeKeyAndOrderFront(nil)
+
+RunLoop.main.run()
+```
+
+## Permissions Management
+
+Native modules require various macOS permissions:
+
+<Tabs>
+  <Tab title="Accessibility">
+    ```swift
+    import ApplicationServices
+    
+    let options: CFDictionary = [
+      kAXTrustedCheckOptionPrompt.takeRetainedValue() as String: true
+    ] as CFDictionary
+    
+    let trusted = AXIsProcessTrustedWithOptions(options)
+    
+    if !trusted {
+      emit(["error": "Accessibility access required"])
+      exit(1)
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Input Monitoring">
+    ```swift
+    // Requested automatically when creating event tap
+    let eventTap = CGEvent.tapCreate(
+      tap: .cgSessionEventTap,
+      place: .headInsertEventTap,
+      options: .defaultTap,
+      eventsOfInterest: mask,
+      callback: callback,
+      userInfo: nil
+    )
+    
+    if eventTap == nil {
+      emit(["error": "Input Monitoring permission required"])
+      exit(1)
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Microphone">
+    ```swift
+    import AVFoundation
+    
+    AVAudioSession.sharedInstance().requestRecordPermission { granted in
+      if !granted {
+        emit(["error": "Microphone access denied"])
+        exit(1)
+      }
+      // Proceed with recording
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Building Native Modules
+
+Native modules are compiled during the build process:
+
+```bash
+# Compile Swift source to binary
+swiftc -O -o dist/native/snippet-expander src/native/snippet-expander.swift
+
+# Make executable
+chmod +x dist/native/snippet-expander
+```
+
+### Build Configuration
+
+In `package.json`:
+
+```json
+{
+  "build": {
+    "asarUnpack": [
+      "dist/native/**/*"
+    ],
+    "files": [
+      "dist/**/*",
+      "!dist/native/**/*"
+    ]
+  }
+}
+```
+
+## Error Handling
+
+Native modules use consistent error reporting:
+
+```typescript
+function handleNativeModuleOutput(line: string, moduleName: string) {
+  try {
+    const event = JSON.parse(line);
+    
+    if (event.error) {
+      console.error(`[${moduleName}] Error:`, event.error);
+      
+      // Show user-friendly error
+      if (event.error.includes('permission')) {
+        showToast({
+          style: Toast.Style.Failure,
+          title: 'Permission Required',
+          message: `${moduleName} needs system permissions`,
+        });
+      }
+      
+      return;
+    }
+    
+    // Process success event
+    handleModuleEvent(moduleName, event);
+  } catch (error) {
+    console.error(`[${moduleName}] Invalid JSON:`, line);
+  }
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Process Management">
+    - Always clean up child processes on app quit
+    - Implement restart logic for crashed processes
+    - Use stdout buffering for reliable message parsing
+    - Set appropriate timeouts for long-running operations
+  </Accordion>
+  
+  <Accordion title="Permission Handling">
+    - Request permissions gracefully with user prompts
+    - Provide clear error messages when permissions are denied
+    - Check permission status before spawning processes
+    - Guide users to System Settings when needed
+  </Accordion>
+  
+  <Accordion title="Performance">
+    - Spawn processes only when needed
+    - Reuse long-running processes when possible
+    - Use event taps at appropriate levels (HID vs Session)
+    - Minimize JSON parsing overhead
+  </Accordion>
+</AccordionGroup>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Extension Runtime" href="./extension-runtime" icon="gear">
+    Learn about extension execution
+  </Card>
+  <Card title="Electron Architecture" href="./electron-architecture" icon="window">
+    Understand the main/renderer process model
+  </Card>
+  <Card title="Raycast API" href="./raycast-api" icon="code">
+    API compatibility reference
+  </Card>
+</CardGroup>

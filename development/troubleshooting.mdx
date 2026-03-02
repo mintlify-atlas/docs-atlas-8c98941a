@@ -1,0 +1,584 @@
+---
+title: Troubleshooting
+description: Common issues and solutions for SuperCmd development
+---
+
+This guide covers common issues you may encounter when developing SuperCmd and how to resolve them.
+
+## Build Issues
+
+### `swiftc: command not found`
+
+**Problem:** Swift compiler not found when running `npm run build:native`
+
+**Solution:**
+
+<Steps>
+  <Step title="Install Xcode Command Line Tools">
+    ```bash
+    xcode-select --install
+    ```
+  </Step>
+
+  <Step title="Restart Terminal">
+    Close and reopen your terminal to refresh PATH
+  </Step>
+
+  <Step title="Verify Installation">
+    ```bash
+    swiftc --version
+    ```
+    You should see Swift version information
+  </Step>
+</Steps>
+
+### `npm install` fails on native modules
+
+**Problem:** Installation fails with node-gyp or native module errors
+
+**Solution:**
+
+<Steps>
+  <Step title="Update Xcode Command Line Tools">
+    ```bash
+    softwareupdate --install -a
+    ```
+  </Step>
+
+  <Step title="Check Node.js Version">
+    ```bash
+    node -v
+    ```
+    SuperCmd requires Node.js 22+
+  </Step>
+
+  <Step title="Clean and Reinstall">
+    ```bash
+    rm -rf node_modules package-lock.json
+    npm install
+    ```
+  </Step>
+</Steps>
+
+### Apple Silicon (M1/M2/M3) issues
+
+**Problem:** Build fails or native features don't work on Apple Silicon Macs
+
+<Warning>
+Ensure you're running the arm64 version of Node.js, not the x64 version via Rosetta
+</Warning>
+
+**Solution:**
+
+```bash
+# Check your Node.js architecture
+node -p "process.arch"
+# Should output: arm64
+
+# If it shows x64, reinstall Node.js arm64 version
+# Download from: https://nodejs.org/
+```
+
+### Native features missing after `npm run dev`
+
+**Problem:** Native features don't work in development mode
+
+**Solution:**
+
+The `dev` script doesn't compile Swift binaries. Run this first:
+
+```bash
+npm run build:native
+```
+
+Then start development mode:
+
+```bash
+npm run dev
+```
+
+## Runtime Issues
+
+### App launches but hotkeys don't work
+
+**Problem:** Global hotkeys and launcher shortcut don't respond
+
+**Solution:**
+
+<Steps>
+  <Step title="Grant Input Monitoring Permission">
+    Go to **System Settings → Privacy & Security → Input Monitoring**
+    
+    Ensure SuperCmd is checked
+  </Step>
+
+  <Step title="Restart the App">
+    Quit SuperCmd completely and relaunch
+  </Step>
+
+  <Step title="Verify Native Binary">
+    ```bash
+    ls -la dist/native/hotkey-hold-monitor
+    ```
+    File should exist and be executable
+  </Step>
+</Steps>
+
+### Window management doesn't work
+
+**Problem:** Window tiling and positioning features fail
+
+**Solution:**
+
+<Steps>
+  <Step title="Grant Accessibility Permission">
+    Go to **System Settings → Privacy & Security → Accessibility**
+    
+    Ensure SuperCmd is checked
+  </Step>
+
+  <Step title="Check window-adjust Binary">
+    The `window-adjust.swift` binary checks `AXIsProcessTrusted()`
+    
+    ```bash
+    ls -la dist/native/window-adjust
+    ```
+  </Step>
+
+  <Step title="Restart the App">
+    Quit SuperCmd and relaunch after granting permission
+  </Step>
+</Steps>
+
+### Extensions fail to install
+
+**Problem:** Extension installation fails with git errors
+
+**Solution:**
+
+<Steps>
+  <Step title="Verify Homebrew is Installed">
+    SuperCmd uses brew-resolved `git` to clone extensions:
+    
+    ```bash
+    brew --version
+    ```
+  </Step>
+
+  <Step title="Install Homebrew if Missing">
+    ```bash
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    ```
+  </Step>
+
+  <Step title="Check Git is Available">
+    ```bash
+    which git
+    git --version
+    ```
+  </Step>
+
+  <Step title="Check Console Logs">
+    Open DevTools (`Cmd+Option+I`) and look for specific error messages
+  </Step>
+</Steps>
+
+### Voice input not working
+
+**Problem:** Hold-to-speak or Whisper STT doesn't work
+
+**Solution:**
+
+<Steps>
+  <Step title="Grant Microphone Permission">
+    Go to **System Settings → Privacy & Security → Microphone**
+    
+    Ensure SuperCmd is checked
+  </Step>
+
+  <Step title="Grant Speech Recognition Permission">
+    Go to **System Settings → Privacy & Security → Speech Recognition**
+    
+    Ensure SuperCmd is checked
+  </Step>
+
+  <Step title="Verify Native Binaries">
+    ```bash
+    ls -la dist/native/speech-recognizer
+    ls -la dist/native/microphone-access
+    ```
+  </Step>
+
+  <Step title="Test Microphone Access">
+    ```bash
+    ./dist/native/microphone-access
+    ```
+    Should return "granted" or "denied"
+  </Step>
+</Steps>
+
+## Development Issues
+
+### Changes not reflected in app
+
+**Problem:** Code changes don't appear after saving
+
+**Solution:**
+
+<Accordion title="Troubleshooting Steps">
+  <AccordionItem title="Check File Watching">
+    Ensure Vite dev server is running and watching files. Look for "vite dev server running at" message.
+  </AccordionItem>
+  
+  <AccordionItem title="Hard Reload">
+    In the app, press `Cmd+R` to reload the renderer process
+  </AccordionItem>
+  
+  <AccordionItem title="Restart Dev Server">
+    Stop `npm run dev` and restart it
+  </AccordionItem>
+  
+  <AccordionItem title="Clear Build Cache">
+    ```bash
+    rm -rf dist/
+    npm run build
+    npm run dev
+    ```
+  </AccordionItem>
+</Accordion>
+
+### DevTools won't open
+
+**Problem:** `Cmd+Option+I` doesn't open Chrome DevTools
+
+**Solution:**
+
+Ensure you're running in development mode:
+
+```bash
+export NODE_ENV=development
+export SUPERCMD_OPEN_DEVTOOLS_ON_STARTUP=1
+npm run dev
+```
+
+Or manually open from code:
+
+```typescript
+// In main process
+mainWindow.webContents.openDevTools();
+```
+
+### TypeScript errors in editor
+
+**Problem:** Editor shows TypeScript errors but build succeeds
+
+**Solution:**
+
+<Steps>
+  <Step title="Restart TypeScript Server">
+    In VS Code: `Cmd+Shift+P` → "TypeScript: Restart TS Server"
+  </Step>
+
+  <Step title="Check tsconfig.json">
+    Verify you're using the correct tsconfig:
+    - `tsconfig.main.json` for main process
+    - `tsconfig.json` for renderer
+  </Step>
+
+  <Step title="Reinstall Dependencies">
+    ```bash
+    rm -rf node_modules package-lock.json
+    npm install
+    ```
+  </Step>
+</Steps>
+
+## Extension Compatibility Issues
+
+### Extension loads but crashes immediately
+
+**Problem:** Extension starts then fails with errors
+
+**Solution:**
+
+<Steps>
+  <Step title="Open DevTools">
+    `Cmd+Option+I` to see error messages
+  </Step>
+
+  <Step title="Check for Missing APIs">
+    Look for errors about undefined functions or modules. Check [CLAUDE.md](https://github.com/SuperCmdLabs/SuperCmd/blob/main/CLAUDE.md) for API implementation status.
+  </Step>
+
+  <Step title="Verify Extension Bundling">
+    Check that esbuild bundled the extension correctly. Look for bundle errors in console.
+  </Step>
+
+  <Step title="Test in Raycast">
+    If possible, test the same extension in official Raycast to verify it works there
+  </Step>
+</Steps>
+
+### Extension preferences not working
+
+**Problem:** Extension can't read or save preferences
+
+**Solution:**
+
+<Accordion title="Debug Steps">
+  <AccordionItem title="Check Preference Schema">
+    Verify the extension's `package.json` has valid preference definitions
+  </AccordionItem>
+  
+  <AccordionItem title="Check localStorage">
+    Open DevTools → Application → Local Storage and verify preferences are stored
+  </AccordionItem>
+  
+  <AccordionItem title="Test getPreferenceValues()">
+    Add console.log in extension to check what preferences are returned:
+    ```typescript
+    const prefs = getPreferenceValues();
+    console.log('Preferences:', prefs);
+    ```
+  </AccordionItem>
+  
+  <AccordionItem title="Check Extension Context">
+    Verify the extension context is set correctly. Check `environment.extensionName`.
+  </AccordionItem>
+</Accordion>
+
+### Extension actions don't fire
+
+**Problem:** Clicking actions or using shortcuts does nothing
+
+**Solution:**
+
+1. Check that ActionPanel is rendered
+2. Verify action callbacks are defined
+3. Look for JavaScript errors in console
+4. Test keyboard shortcuts match expected format
+5. Check action registry is collecting actions correctly
+
+## IPC Issues
+
+### IPC calls timeout or fail
+
+**Problem:** Renderer → Main IPC calls fail or hang
+
+**Solution:**
+
+<Steps>
+  <Step title="Verify Handler Exists">
+    Check that `ipcMain.handle()` is registered in `src/main/main.ts`:
+    ```typescript
+    ipcMain.handle('your-channel', async (event, args) => {
+      // handler code
+    });
+    ```
+  </Step>
+
+  <Step title="Check Preload Exposure">
+    Verify the channel is exposed in `src/main/preload.ts`:
+    ```typescript
+    contextBridge.exposeInMainWorld('electron', {
+      ipcRenderer: {
+        invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args)
+      }
+    });
+    ```
+  </Step>
+
+  <Step title="Check for Errors">
+    Add try-catch to both sides:
+    ```typescript
+    // Renderer
+    try {
+      const result = await window.electron.ipcRenderer.invoke('channel');
+    } catch (error) {
+      console.error('IPC error:', error);
+    }
+    
+    // Main
+    ipcMain.handle('channel', async () => {
+      try {
+        return await doSomething();
+      } catch (error) {
+        console.error('Handler error:', error);
+        throw error;
+      }
+    });
+    ```
+  </Step>
+</Steps>
+
+## AI Feature Issues
+
+### AI chat not working
+
+**Problem:** AI responses don't stream or fail
+
+**Solution:**
+
+<Steps>
+  <Step title="Check AI Configuration">
+    Go to **Settings → AI** and verify:
+    - AI is enabled
+    - Provider is selected (OpenAI, Claude, or Ollama)
+    - API key is set (if using cloud providers)
+  </Step>
+
+  <Step title="Test API Key">
+    Test the API key directly:
+    ```bash
+    # OpenAI
+    curl https://api.openai.com/v1/models \
+      -H "Authorization: Bearer $OPENAI_API_KEY"
+    
+    # Anthropic
+    curl https://api.anthropic.com/v1/messages \
+      -H "x-api-key: $ANTHROPIC_API_KEY" \
+      -H "anthropic-version: 2023-06-01"
+    
+    # Ollama
+    curl http://localhost:11434/api/tags
+    ```
+  </Step>
+
+  <Step title="Check Console Logs">
+    Open DevTools and look for AI-related errors
+  </Step>
+
+  <Step title="Verify Streaming Works">
+    Check that `ai-provider.ts` is handling streaming correctly
+  </Step>
+</Steps>
+
+### Ollama not connecting
+
+**Problem:** Ollama integration fails
+
+**Solution:**
+
+<Steps>
+  <Step title="Check Ollama is Running">
+    ```bash
+    curl http://localhost:11434/api/tags
+    ```
+    Should return list of models
+  </Step>
+
+  <Step title="Verify Base URL">
+    In Settings → AI, check `ollamaBaseUrl` is set to `http://localhost:11434`
+  </Step>
+
+  <Step title="Install Models">
+    ```bash
+    ollama pull llama2
+    ollama list
+    ```
+  </Step>
+</Steps>
+
+## Performance Issues
+
+### App is slow or laggy
+
+**Problem:** UI feels sluggish or unresponsive
+
+**Solution:**
+
+<Accordion title="Performance Optimization">
+  <AccordionItem title="Check CPU Usage">
+    Open Activity Monitor and check SuperCmd CPU usage. Look for runaway processes.
+  </AccordionItem>
+  
+  <AccordionItem title="Check Memory Usage">
+    High memory usage may indicate memory leaks. Restart the app to clear.
+  </AccordionItem>
+  
+  <AccordionItem title="Disable DevTools">
+    DevTools can slow down the renderer. Close it when not debugging.
+  </AccordionItem>
+  
+  <AccordionItem title="Profile with React DevTools">
+    Install React DevTools and use the Profiler to find slow components.
+  </AccordionItem>
+  
+  <AccordionItem title="Check Extension Performance">
+    Some extensions may be slow. Try disabling extensions one by one to identify the culprit.
+  </AccordionItem>
+</Accordion>
+
+### Large extension lists are slow
+
+**Problem:** Scrolling through many items is laggy
+
+**Solution:**
+
+- Implement virtual scrolling for long lists
+- Add search filtering to reduce visible items
+- Check if pagination is working correctly
+- Profile render performance in React DevTools
+
+## macOS-Specific Issues
+
+### Permission dialogs keep appearing
+
+**Problem:** macOS asks for permissions repeatedly
+
+**Solution:**
+
+This happens when the app bundle identifier changes or the app is rebuilt:
+
+1. Go to **System Settings → Privacy & Security**
+2. Remove SuperCmd from all permission lists
+3. Relaunch SuperCmd
+4. Grant permissions when prompted
+5. Restart the app
+
+### App crashes on macOS Sonoma
+
+**Problem:** App crashes or freezes on macOS Sonoma (14.x)
+
+**Solution:**
+
+<Steps>
+  <Step title="Update Electron">
+    Ensure you're using Electron 28+ which has Sonoma compatibility fixes
+  </Step>
+
+  <Step title="Check Native Binaries">
+    Recompile Swift binaries:
+    ```bash
+    npm run build:native
+    ```
+  </Step>
+
+  <Step title="Check Console Logs">
+    Open Console.app and filter for "SuperCmd" to see system-level errors
+  </Step>
+</Steps>
+
+## Getting Help
+
+If you're still stuck:
+
+1. **Search GitHub Issues** — Check if someone else has reported the same problem: [GitHub Issues](https://github.com/SuperCmdLabs/SuperCmd/issues)
+
+2. **Ask on Discord** — Join our [Discord server](https://discord.gg/CsdbknHqx5) for real-time help
+
+3. **Create an Issue** — If it's a bug, create a new issue with:
+   - macOS version
+   - Node.js version (`node -v`)
+   - SuperCmd version
+   - Steps to reproduce
+   - Console logs (if available)
+   - Screenshots (if relevant)
+
+4. **Check Documentation** — Read [CLAUDE.md](https://github.com/SuperCmdLabs/SuperCmd/blob/main/CLAUDE.md) for architecture details
+
+## Next Steps
+
+- Learn about [Contributing](./contributing) to SuperCmd
+- Understand [Code Organization](./code-organization)
+- Review [Testing](./testing) strategies

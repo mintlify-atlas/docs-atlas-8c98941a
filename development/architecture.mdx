@@ -1,0 +1,269 @@
+---
+title: Architecture
+description: Understand SuperCmd's project structure and design principles
+---
+
+SuperCmd is built as an Electron application with a focus on Raycast extension compatibility while remaining open-source and community-driven.
+
+## Core Principles
+
+<CardGroup cols={2}>
+  <Card title="Extension Compatibility" icon="puzzle-piece">
+    The app must be compatible with existing Raycast extensions without requiring modifications to extension code.
+  </Card>
+  <Card title="Runtime Control" icon="terminal">
+    All changes and enhancements are implemented in SuperCmd itself, not in extensions, since we cannot control extension code at runtime.
+  </Card>
+  <Card title="API Parity" icon="code">
+    Keep APIs in sync with `@raycast/api` and track implementation status against the official Raycast API.
+  </Card>
+  <Card title="Progressive Enhancement" icon="arrow-up">
+    Gradually implement all Raycast APIs to achieve full parity.
+  </Card>
+</CardGroup>
+
+## Tech Stack
+
+- **Electron** - Main process for system integration
+- **React** - UI framework for the renderer
+- **Vite** - Build tool and dev server
+- **TypeScript** - Type-safe development
+- **Swift** - Native macOS integrations
+
+## Project Structure
+
+```text
+src/
+├── main/                          # Electron main process
+│   ├── main.ts                    # Entry point; IPC handlers, window management, global shortcuts
+│   ├── preload.ts                 # contextBridge — exposes window.electron API to renderer
+│   ├── commands.ts                # App/settings/extension/script discovery; getAvailableCommands() with cache
+│   ├── extension-runner.ts        # Extension execution engine (esbuild bundle + require shim)
+│   ├── extension-registry.ts      # Extension catalog, install, uninstall, update
+│   ├── script-command-runner.ts   # Raycast-compatible script command execution
+│   ├── ai-provider.ts             # AI streaming (OpenAI / Anthropic / Ollama) via Node http/https
+│   └── settings-store.ts          # JSON settings persistence (AppSettings, cached in memory)
+├── renderer/                      # Electron renderer process (UI)
+│   ├── types/
+│   │   └── electron.d.ts          # TypeScript types for window.electron IPC bridge
+│   └── src/
+│       ├── App.tsx                # Root component — composes all hooks, routes to view components
+│       ├── raycast-api/            # @raycast/api + @raycast/utils compatibility runtime modules
+│       │   ├── index.tsx          # Integration/export surface (wires runtime modules)
+│       │   ├── action-runtime*.tsx # Action/ActionPanel registry + overlay runtime
+│       │   ├── list-runtime*.tsx   # List runtime (item registry, renderers, detail)
+│       │   ├── form-runtime*.tsx   # Form runtime (container + fields + context)
+│       │   ├── grid-runtime*.tsx   # Grid runtime (item registry + renderer + container)
+│       │   ├── detail-runtime.tsx  # Detail runtime
+│       │   └── menubar-runtime*.tsx # MenuBarExtra runtime
+│       ├── hooks/                 # Feature hooks (state + logic, no JSX)
+│       │   ├── useAppViewManager.ts      # View state machine — which screen is active
+│       │   ├── useAiChat.ts              # AI chat mode state + streaming
+│       │   ├── useCursorPrompt.ts        # Inline AI cursor prompt state + streaming
+│       │   ├── useMenuBarExtensions.ts   # Menu-bar extension lifecycle
+│       │   ├── useBackgroundRefresh.ts   # Interval-based background refresh for extensions/scripts
+│       │   ├── useSpeakManager.ts        # TTS (Read) overlay state + portal
+│       │   └── useWhisperManager.ts      # Whisper STT overlay state + portals
+│       ├── views/                 # Full-screen view components (pure UI, state from hooks)
+│       │   ├── AiChatView.tsx                  # Full-screen AI chat panel
+│       │   ├── CursorPromptView.tsx             # Inline/portal AI cursor prompt UI
+│       │   ├── ScriptCommandSetupView.tsx       # Script argument collection form
+│       │   ├── ScriptCommandOutputView.tsx      # Script stdout/stderr output viewer
+│       │   └── ExtensionPreferenceSetupView.tsx # Extension preference/argument form
+│       ├── utils/                 # Pure utility modules (no side-effects)
+│       │   ├── constants.ts              # localStorage keys, magic numbers, error strings
+│       │   ├── command-helpers.tsx        # filterCommands, icon renderers, display helpers
+│       │   └── extension-preferences.ts  # localStorage helpers, preference hydration, missing-pref checks
+│       ├── ExtensionView.tsx      # Renders a live Raycast extension inside the launcher
+│       ├── settings/              # Settings window UI (AITab, ExtensionsTab, GeneralTab, etc.)
+│       └── useDetachedPortalWindow.ts    # Hook to open/manage a detached Electron overlay window
+└── native/                        # Native Swift modules
+    ├── color-picker.swift
+    ├── snippet-expander.swift
+    ├── hotkey-hold-monitor.swift
+    ├── speech-recognizer.swift
+    ├── microphone-access.swift
+    ├── input-monitoring-request.swift
+    └── window-adjust.swift
+
+extensions/                        # Installed/managed extension data
+dist/                              # Build output
+```
+
+## Extension Execution Model
+
+SuperCmd's extension system is designed to run Raycast extensions without modification:
+
+<Steps>
+  <Step title="Extension Loading">
+    Extensions are loaded from the Raycast extension registry and stored locally in the `extensions/` directory.
+  </Step>
+
+  <Step title="Code Bundling">
+    Extension code is bundled using esbuild to CommonJS format for Node.js-style `require()` compatibility.
+  </Step>
+
+  <Step title="Runtime Shim">
+    A custom `require()` function provides:
+    - **React** - Shared instance with the host app
+    - **@raycast/api** - SuperCmd's compatibility layer
+    - **@raycast/utils** - Utility hooks and functions
+    
+    See `src/main/extension-runner.ts:25`
+  </Step>
+
+  <Step title="Isolation">
+    Extensions run in isolated contexts but share React with the host to ensure proper React context and hooks work correctly.
+  </Step>
+</Steps>
+
+## API Compatibility Layer
+
+The `src/renderer/src/raycast-api/` directory contains runtime modules that provide a comprehensive compatibility shim:
+
+- **Intercepts imports** - All `@raycast/api` and `@raycast/utils` imports from extensions
+- **React-compatible components** - Provides React implementations of Raycast components
+- **IPC bridge** - Bridges to Electron main process for system-level operations
+- **API compatibility** - Maintains compatibility while allowing internal enhancements
+
+### Key Runtime Modules
+
+| Module | Purpose |
+|--------|--------|
+| `index.tsx` | Integration/export surface for `@raycast/api` + `@raycast/utils` |
+| `action-runtime*.tsx` | Action/ActionPanel registry + overlay runtime |
+| `list-runtime*.tsx` | List runtime (item registry, renderers, detail) |
+| `form-runtime*.tsx` | Form runtime (container + fields + context) |
+| `grid-runtime*.tsx` | Grid runtime (item registry + renderer + container) |
+| `icon-runtime*.tsx` | Icon resolution and rendering (Phosphor icons, asset handling) |
+| `oauth/*` | OAuth flow implementation for extensions |
+| `hooks/*` | Extracted hooks like `useFetch`, `usePromise`, `useAI`, etc. |
+
+<Note>
+See [CLAUDE.md](https://github.com/SuperCmdLabs/SuperCmd/blob/main/CLAUDE.md) for a complete file map and API implementation status.
+</Note>
+
+## Code Organization Guidelines
+
+When working on SuperCmd, follow these organization principles:
+
+<CodeGroup>
+```typescript src/renderer/src/raycast-api/
+// API Shim: All Raycast API implementations
+// Keep logic in focused runtime files
+// index.tsx is the integration/export surface
+```
+
+```typescript src/main/
+// System Integration: Electron IPC handlers
+// Extension management and execution
+// Settings persistence
+```
+
+```typescript src/renderer/src/hooks/
+// Feature Logic: Dedicated hook per feature
+// State + logic, no JSX
+// Import from views, not inline in components
+```
+
+```typescript src/renderer/src/views/
+// View Components: Full-screen UI panels
+// Pure UI, no business logic
+// State comes from hooks
+```
+
+```typescript src/renderer/src/utils/
+// Shared Utilities: Pure helpers
+// No side effects
+// Import from here, not inline in components
+```
+
+```typescript src/renderer/src/App.tsx
+// Orchestrator: Wires hooks together
+// Routes to the correct view
+// Avoid adding business logic directly
+```
+</CodeGroup>
+
+## Electron Architecture
+
+### Main Process
+
+Handles system operations and extension management:
+
+- **Window management** - Overlay window with transparency (`main.ts:45`)
+- **IPC handlers** - Communication bridge with renderer (`main.ts:120-450`)
+- **Extension execution** - Bundles and runs extensions (`extension-runner.ts`)
+- **Settings persistence** - JSON settings storage (`settings-store.ts`)
+- **AI provider** - Streaming responses from OpenAI/Anthropic/Ollama (`ai-provider.ts`)
+
+### Renderer Process
+
+UI rendering and extension execution:
+
+- **React UI** - Component-based interface
+- **Raycast API shim** - Extension compatibility layer
+- **Extension views** - Live extension rendering (`ExtensionView.tsx`)
+- **Settings UI** - Configuration interface (`settings/`)
+
+### Preload Script
+
+Secure IPC bridge between main and renderer:
+
+- **Context bridge** - Exposes `window.electron` API to renderer (`preload.ts:15`)
+- **Type safety** - TypeScript types in `renderer/types/electron.d.ts`
+
+## System Integration
+
+### macOS Features
+
+Native Swift modules provide macOS-specific functionality:
+
+- **Global hotkeys** - System-wide keyboard shortcuts (`hotkey-hold-monitor.swift`)
+- **Window management** - Overlay window control (`window-adjust.swift`)
+- **Color picker** - Native macOS color picker (`color-picker.swift`)
+- **Speech recognition** - Speech-to-text (`speech-recognizer.swift`)
+- **Snippet expansion** - Text snippet insertion (`snippet-expander.swift`)
+
+### Extension Registry
+
+SuperCmd integrates with the Raycast extension registry:
+
+1. **Browse extensions** - Access the full catalog
+2. **Install extensions** - Download and install from registry
+3. **Manage extensions** - Enable/disable installed extensions
+4. **Update extensions** - Keep extensions up to date
+
+See `src/main/extension-registry.ts:100-250`
+
+## AI Integration
+
+SuperCmd supports multiple AI providers:
+
+- **Ollama** - Local AI models (`ai-provider.ts:50`)
+- **OpenAI** - Cloud-based AI via OpenAI API (`ai-provider.ts:100`)
+- **Anthropic (Claude)** - Via Anthropic API (`ai-provider.ts:150`)
+
+AI availability is checked via `environment.canAccess(AI)` and cached for performance.
+
+## Settings Storage
+
+All app settings are persisted in:
+
+```
+~/Library/Application Support/SuperCmd/settings.json
+```
+
+Settings include:
+- AI provider configuration and API keys
+- Extension preferences
+- UI preferences
+- Hotkey bindings
+
+See `src/main/settings-store.ts:20`
+
+## Next Steps
+
+- Set up your [development environment](/development/setup)
+- Learn about [building and packaging](/development/building)
+- Review [API implementation status](https://github.com/SuperCmdLabs/SuperCmd/blob/main/CLAUDE.md#api-implementation-status)

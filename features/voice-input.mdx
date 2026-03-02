@@ -1,0 +1,324 @@
+---
+title: Voice Input (Whisper)
+description: Use speech-to-text to control SuperCmd with your voice
+icon: microphone
+---
+
+SuperCmd integrates OpenAI's Whisper API to provide accurate speech-to-text transcription, allowing you to dictate commands, write text, and control your computer with your voice.
+
+## Overview
+
+Voice input in SuperCmd uses the Whisper API to transcribe your speech in real-time. The transcribed text is automatically inserted at your cursor position or used as a command in SuperCmd.
+
+<Info>
+  Whisper voice input requires an OpenAI API key. You'll be prompted to configure this on first use.
+</Info>
+
+## Getting Started
+
+<Steps>
+  <Step title="Configure API Key">
+    Open **Settings** (`Cmd+,`) > **AI** tab and enter your OpenAI API key.
+  </Step>
+  
+  <Step title="Activate Voice Input">
+    Press the **Fn** key (or your configured voice input hotkey) to open the Whisper overlay.
+  </Step>
+  
+  <Step title="Start Speaking">
+    When the overlay appears, start speaking. Your audio is captured in real-time.
+  </Step>
+  
+  <Step title="Finish Recording">
+    Release the **Fn** key or click **Stop** to end recording and transcribe your speech.
+  </Step>
+</Steps>
+
+## How It Works
+
+The Whisper integration is managed by the `useWhisperManager` hook (src/renderer/src/hooks/useWhisperManager.ts):
+
+### Architecture
+
+```typescript
+// Voice input state management
+export interface UseWhisperManagerReturn {
+  whisperOnboardingPracticeText: string;      // Accumulated transcription
+  whisperSpeakToggleLabel: string;            // Toggle button label (fn/speak)
+  whisperSessionRef: React.MutableRefObject;  // Active session tracker
+  whisperPortalTarget: HTMLElement | null;    // Detached overlay window
+}
+```
+
+### Recording Flow
+
+1. **Activation**: Fn key press opens detached overlay window (620x88px, bottom-center)
+2. **Audio Capture**: Browser MediaRecorder API captures audio from microphone
+3. **Transcription**: Audio buffer sent to OpenAI Whisper API (src/main/ai-provider.ts:539)
+4. **Text Insertion**: Transcribed text inserted at cursor or into SuperCmd
+
+### Whisper API Integration
+
+From `ai-provider.ts:539`, the transcription process:
+
+```typescript
+export function transcribeAudio(opts: TranscribeOptions): Promise<string> {
+  // Multipart form upload to OpenAI Whisper API
+  // Supports: wav, mp3, m4a, ogg, flac, webm
+  // Returns plain text transcription
+}
+```
+
+<Note>
+  Audio is sent directly to OpenAI and is not stored locally. Recording sessions are ephemeral.
+</Note>
+
+## Using Voice Input
+
+### Dictation Mode
+
+Insert text anywhere:
+
+1. Position your cursor in any text field
+2. Press and hold **Fn**
+3. Speak your text
+4. Release **Fn** to transcribe and insert
+
+### Command Mode
+
+Use voice to run SuperCmd commands:
+
+1. Press your SuperCmd hotkey to open the launcher
+2. Press **Fn** to activate voice input
+3. Speak a command name (e.g., "Open Spotify")
+4. SuperCmd will search and execute the matching command
+
+### Continuous Recording
+
+For longer dictation:
+
+1. Press **Fn** to start
+2. Click the overlay to toggle hold mode
+3. Speak continuously
+4. Click **Stop** when finished
+
+## Settings
+
+### Voice Input Hotkey
+
+Customize the activation key:
+
+1. Open **Settings** > **General**
+2. Set **Voice Input Hotkey** (default: Fn)
+3. Options include: Fn, Right Cmd, Right Option, Right Shift
+
+### Whisper Model
+
+Configure the transcription model:
+
+```typescript
+// Available Whisper models
+whisper-1 // Default: Fast, accurate for most languages
+```
+
+<Tip>
+  The Whisper API supports automatic language detection, so you don't need to specify your language.
+</Tip>
+
+### Language Settings
+
+Optionally specify a language for better accuracy:
+
+1. Open **Settings** > **AI**
+2. Set **Whisper Language** (optional)
+3. Use ISO 639-1 codes (e.g., `en`, `es`, `fr`, `de`)
+
+## Overlay Window
+
+The Whisper overlay is a detached window managed by `useDetachedPortalWindow` (src/renderer/src/useDetachedPortalWindow.ts):
+
+### Window Specifications
+
+- **Position**: Bottom-center of screen
+- **Size**: 620×88 pixels
+- **Style**: Transparent, frameless
+- **Behavior**: Auto-closes on blur or Escape
+
+### Visual States
+
+<Tabs>
+  <Tab title="Listening">
+    Animated waveform indicates active recording
+  </Tab>
+  <Tab title="Processing">
+    Spinner shows transcription in progress
+  </Tab>
+  <Tab title="Complete">
+    Overlay closes and text is inserted
+  </Tab>
+  <Tab title="Error">
+    Red indicator with error message
+  </Tab>
+</Tabs>
+
+## Audio Format Support
+
+Whisper accepts multiple audio formats (src/main/ai-provider.ts:529):
+
+```typescript
+function resolveUploadMeta(mimeType?: string) {
+  // Supported formats:
+  // - audio/wav
+  // - audio/mpeg (mp3)
+  // - audio/mp4 (m4a)
+  // - audio/ogg
+  // - audio/flac
+  // - audio/webm (default browser recording)
+}
+```
+
+SuperCmd automatically detects and converts your browser's recording format.
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Speak Clearly" icon="volume">
+    Enunciate words clearly for better transcription accuracy
+  </Card>
+  
+  <Card title="Use Quiet Environment" icon="volume-xmark">
+    Reduce background noise for cleaner audio
+  </Card>
+  
+  <Card title="Short Segments" icon="clock">
+    Keep recordings under 30 seconds for faster transcription
+  </Card>
+  
+  <Card title="Review First" icon="check">
+    Check transcribed text before sending or saving
+  </Card>
+</CardGroup>
+
+## Keyboard Shortcuts
+
+| Action | Shortcut |
+|--------|----------|
+| Start/Stop Recording | `Fn` (hold) |
+| Cancel Recording | `Escape` |
+| Toggle Hold Mode | Click overlay |
+
+## Onboarding Practice
+
+First-time users are guided through an onboarding flow:
+
+<Steps>
+  <Step title="Grant Microphone Permission">
+    Browser will request microphone access
+  </Step>
+  
+  <Step title="Practice Speaking">
+    Try a test phrase to verify setup
+  </Step>
+  
+  <Step title="Review Transcription">
+    See your practice text transcribed in real-time (src/renderer/src/hooks/useWhisperManager.ts:91)
+  </Step>
+  
+  <Step title="Start Using">
+    Complete onboarding and start using voice input
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="No microphone detected">
+    1. Grant microphone permission in System Settings > Privacy & Security > Microphone
+    2. Ensure SuperCmd is checked in the list
+    3. Restart SuperCmd after granting permission
+  </Accordion>
+  
+  <Accordion title="Poor transcription quality">
+    - Check microphone input level in System Settings > Sound
+    - Reduce background noise
+    - Speak more slowly and clearly
+    - Try adjusting microphone position
+  </Accordion>
+  
+  <Accordion title="Transcription is slow">
+    - API response time varies based on audio length
+    - Check your internet connection
+    - Verify OpenAI API key is valid
+  </Accordion>
+  
+  <Accordion title="API errors">
+    - Verify OpenAI API key in Settings > AI
+    - Check API quota and billing status
+    - Ensure API key has Whisper API access
+  </Accordion>
+</AccordionGroup>
+
+## Privacy & Security
+
+<Warning>
+  Audio recordings are sent to OpenAI's Whisper API for transcription. Audio is not stored by SuperCmd locally, but OpenAI may retain data according to their privacy policy.
+</Warning>
+
+### What's Sent
+
+- Raw audio recording (duration varies)
+- Language hint (if configured)
+- Model selection (whisper-1)
+
+### What's Not Sent
+
+- No personal identifiers
+- No app context or metadata
+- No previous recordings
+
+### Data Retention
+
+According to OpenAI's policy:
+
+- API requests may be retained for abuse monitoring
+- Audio is not used for model training (as of March 2024)
+- See [OpenAI Privacy Policy](https://openai.com/policies/privacy-policy) for details
+
+<Tip>
+  You can disable voice input entirely in Settings > General if you prefer not to use this feature.
+</Tip>
+
+## Advanced Usage
+
+### Text Accumulation
+
+The `appendWhisperOnboardingPracticeText` function (src/renderer/src/hooks/useWhisperManager.ts:91) intelligently concatenates transcription chunks:
+
+```typescript
+appendWhisperOnboardingPracticeText((chunk: string) => {
+  // Adds smart spacing between words
+  // Prevents double spaces
+  // Handles punctuation properly
+});
+```
+
+### Session Management
+
+Voice sessions are tracked to prevent launcher interference:
+
+```typescript
+whisperSessionRef.current = true; // Active session
+// Suppresses launcher reset logic during recording
+```
+
+## Cost Considerations
+
+Whisper API pricing (as of 2024):
+
+- **$0.006 per minute** of audio
+- Average 10-second recording: ~$0.001
+- Monthly heavy usage (500 recordings): ~$5
+
+<Note>
+  Monitor your OpenAI usage dashboard to track Whisper API costs.
+</Note>

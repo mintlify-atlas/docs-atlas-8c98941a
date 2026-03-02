@@ -1,0 +1,441 @@
+---
+title: Window Management
+description: Arrange, resize, and organize windows with keyboard shortcuts
+icon: window-maximize
+---
+
+SuperCmd includes a comprehensive window management system that lets you position and resize windows using keyboard shortcuts, similar to Rectangle or Magnet.
+
+## Overview
+
+Window management in SuperCmd provides:
+
+- **45+ layout presets** (halves, thirds, quarters, sixths, center, fill)
+- **Fine-tuning controls** (resize by 10%, move in increments)
+- **Auto-organize** multiple windows in grid layouts
+- **Visual preview** before applying layouts
+- **Keyboard-first** workflow
+
+<Info>
+  Window management uses the `node-window-manager` library to interact with native window APIs (src/main/window-manager-worker.ts).
+</Info>
+
+## Quick Start
+
+<Steps>
+  <Step title="Open Window Manager">
+    Press SuperCmd hotkey, then search for "Window Management" or use the dedicated hotkey (configure in Settings).
+  </Step>
+  
+  <Step title="Select Layout">
+    Browse layout presets with arrow keys or type to search (e.g., "left", "center").
+  </Step>
+  
+  <Step title="Preview Layout">
+    Press `Shift+Enter` to preview the layout without closing the panel.
+  </Step>
+  
+  <Step title="Apply Layout">
+    Press `Enter` to apply the layout and close the panel.
+  </Step>
+</Steps>
+
+## Layout Presets
+
+### Halves & Quarters
+
+<Tabs>
+  <Tab title="Halves">
+    - **Left** - Left half of screen
+    - **Right** - Right half
+    - **Top** - Top half
+    - **Bottom** - Bottom half
+  </Tab>
+  
+  <Tab title="Quarters">
+    - **Top Left** - Upper-left quarter
+    - **Top Right** - Upper-right quarter
+    - **Bottom Left** - Lower-left quarter
+    - **Bottom Right** - Lower-right quarter
+  </Tab>
+</Tabs>
+
+### Thirds
+
+**Vertical Thirds:**
+- **First Third** - Left third
+- **Center Third** - Middle third
+- **Last Third** - Right third
+
+**Two-Thirds:**
+- **First Two Thirds** - Left 2/3
+- **Center Two Thirds** - Middle 2/3
+- **Last Two Thirds** - Right 2/3
+
+### Fourths
+
+**Vertical Fourths:**
+- **First Fourth** - Leftmost quarter
+- **Second Fourth** - Left-center quarter
+- **Third Fourth** - Right-center quarter
+- **Last Fourth** - Rightmost quarter
+
+**Three-Fourths:**
+- **First Three Fourths** - Left 3/4
+- **Center Three Fourths** - Middle 3/4
+- **Last Three Fourths** - Right 3/4
+
+### Sixths (2×3 Grid)
+
+**Top Row:**
+- Top Left Sixth
+- Top Center Sixth
+- Top Right Sixth
+
+**Bottom Row:**
+- Bottom Left Sixth
+- Bottom Center Sixth
+- Bottom Right Sixth
+
+### Special Layouts
+
+<CardGroup cols={2}>
+  <Card title="Center" icon="compress">
+    Center window at 60% screen size
+  </Card>
+  
+  <Card title="Almost Maximize" icon="expand">
+    Center at 80% (leaves margins)
+  </Card>
+  
+  <Card title="Maximize" icon="maximize">
+    Fill entire screen
+  </Card>
+  
+  <Card title="Auto-Organize" icon="grid-2">
+    Arrange up to 4 windows in smart grid
+  </Card>
+</CardGroup>
+
+## Fine-Tuning Controls
+
+Adjust window size and position incrementally:
+
+### Size Adjustments (10% Steps)
+
+| Action | Shortcut Preset |
+|--------|----------------|
+| Increase Size | `increase-size-10` |
+| Decrease Size | `decrease-size-10` |
+| Expand Left | `increase-left-10` |
+| Expand Right | `increase-right-10` |
+| Expand Top | `increase-top-10` |
+| Expand Bottom | `increase-bottom-10` |
+| Shrink Left | `decrease-left-10` |
+| Shrink Right | `decrease-right-10` |
+| Shrink Top | `decrease-top-10` |
+| Shrink Bottom | `decrease-bottom-10` |
+
+### Position Adjustments
+
+| Action | Shortcut Preset |
+|--------|----------------|
+| Move Up | `move-up-10` |
+| Move Down | `move-down-10` |
+| Move Left | `move-left-10` |
+| Move Right | `move-right-10` |
+
+<Note>
+  Fine-tuning presets require `Shift+Enter` to prevent accidental activation. They adjust the **active window** by 10% of its current size.
+</Note>
+
+## Auto-Organize
+
+Arrange multiple windows automatically:
+
+### How It Works
+
+1. Detects all windows on current screen
+2. Filters out system windows and minimized windows
+3. Sorts by position (top to bottom, left to right)
+4. Arranges up to 4 windows in optimal grid
+
+### Layout Strategies (src/renderer/src/WindowManagerPanel.tsx:1027)
+
+```typescript
+// 2 windows: Split vertically (50/50)
+if (windows.length === 2) {
+  splitVertical(area);
+}
+
+// 3 windows: Left half + right split
+if (windows.length === 3) {
+  buildAutoFill3Layout();
+}
+
+// 4 windows: 2×2 grid
+if (windows.length === 4) {
+  buildAutoFill4Layout();
+}
+```
+
+<Tip>
+  Auto-organize is smart about window sizes. It preserves aspect ratios and minimum dimensions to keep windows usable.
+</Tip>
+
+## Window Detection
+
+### Manageable Windows
+
+SuperCmd only manages windows that meet criteria (src/renderer/src/WindowManagerPanel.tsx:518):
+
+```typescript
+function isManageableWindow(win: ManagedWindow): boolean {
+  // Must have valid ID and bounds
+  // Not a SuperCmd window (prevents self-management)
+  // Minimum size: 120×60 pixels
+  // Must be positionable and resizable
+  // Not minimized or hidden
+}
+```
+
+### Target Window Selection
+
+When applying a preset, SuperCmd selects the target window:
+
+1. **Explicitly targeted** - From Window Management context
+2. **Active window** - Frontmost application window
+3. **Nearest window** - Closest to layout region center (for auto-organize)
+
+## Visual Preview
+
+Preview layouts before applying (src/renderer/src/WindowManagerPanel.tsx:1331):
+
+### Preview Mode
+
+1. Navigate to a preset
+2. Press `Shift+Enter`
+3. Window outline appears showing future position
+4. Press `Enter` to apply or `Escape` to cancel
+
+<Warning>
+  Preview mode temporarily moves windows. Use sparingly on critical workflows.
+</Warning>
+
+## Keyboard Shortcuts
+
+Assign custom shortcuts to presets:
+
+### Setting Shortcuts
+
+1. **Settings** > **Hotkeys**
+2. Find "Window Management" section
+3. Click preset (e.g., "Left Half")
+4. Press desired key combination
+5. Shortcut saves automatically
+
+### Preset Command IDs (src/renderer/src/WindowManagerPanel.tsx:84)
+
+```typescript
+const WINDOW_MANAGEMENT_PRESET_COMMANDS = [
+  { commandId: 'system-window-management-left', presetId: 'left' },
+  { commandId: 'system-window-management-right', presetId: 'right' },
+  { commandId: 'system-window-management-center', presetId: 'center' },
+  // ... 40+ more
+];
+```
+
+<Tip>
+  Common shortcuts:
+  - `Ctrl+Cmd+Left` - Left half
+  - `Ctrl+Cmd+Right` - Right half
+  - `Ctrl+Cmd+F` - Fill screen
+</Tip>
+
+## Multi-Monitor Support
+
+SuperCmd handles multi-monitor setups:
+
+### Screen Detection
+
+Layouts apply to the screen containing the target window:
+
+```typescript
+// Screen metrics (src/renderer/src/WindowManagerPanel.tsx:530)
+function getHostMetrics(): ScreenArea {
+  return {
+    left: screen.availLeft,      // Accounts for menu bar
+    top: screen.availTop,
+    width: screen.availWidth,
+    height: screen.availHeight
+  };
+}
+```
+
+### Work Area Calculation
+
+Respects menu bars, docks, and taskbars:
+
+- **macOS**: Excludes menu bar (top) and Dock
+- **Windows**: Excludes taskbar
+- **Linux**: Respects panel reservations
+
+## Settings
+
+### Window Management Panel
+
+**Settings > General > Window Management**:
+
+- **Enable Window Management** - Toggle feature on/off
+- **Show Preview** - Enable/disable preview mode
+- **Execution Delay** - Minimum time between operations (default: 14ms)
+
+### Accessibility Permissions
+
+<Steps>
+  <Step title="Grant Permission">
+    macOS requires Accessibility permission for window control.
+  </Step>
+  
+  <Step title="System Settings">
+    System Settings > Privacy & Security > Accessibility
+  </Step>
+  
+  <Step title="Enable SuperCmd">
+    Check the box next to SuperCmd in the app list.
+  </Step>
+  
+  <Step title="Restart if Needed">
+    Restart SuperCmd after granting permission.
+  </Step>
+</Steps>
+
+<Warning>
+  Without Accessibility permission, window management features will not work.
+</Warning>
+
+## Advanced Features
+
+### Smart Grid Layouts
+
+Auto-organize uses intelligent grid calculation (src/renderer/src/WindowManagerPanel.tsx:608):
+
+```typescript
+function computeGridDimensions(count: number, region: Rect) {
+  // Finds optimal rows×cols to match screen aspect ratio
+  // Minimizes empty cells
+  // Example: 5 windows → 3×2 grid (one empty cell)
+}
+```
+
+### Window Size Hints
+
+Preserves preferred window dimensions when possible:
+
+```typescript
+// Smart vertical split (src/renderer/src/WindowManagerPanel.tsx:721)
+function splitVerticalSmart(
+  area: ScreenArea,
+  leftWindows: ManagedWindow[],
+  rightWindows: ManagedWindow[]
+) {
+  // Respects desired widths from current window sizes
+  // Ensures both sides remain usable
+}
+```
+
+### Minimum Window Constraints
+
+```typescript
+const MIN_WINDOW_WIDTH = 120;  // pixels
+const MIN_WINDOW_HEIGHT = 60;  // pixels
+```
+
+Prevents windows from becoming too small to use.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Windows won't move">
+    1. Check Accessibility permission (System Settings)
+    2. Ensure window is not fullscreen
+    3. Try a different window
+    4. Restart SuperCmd
+  </Accordion>
+  
+  <Accordion title="Wrong window selected">
+    - Activate the target window first
+    - Use Window Management panel to explicitly select
+    - Check for hidden or minimized windows
+  </Accordion>
+  
+  <Accordion title="Layouts don't fit screen">
+    - Verify screen resolution detection
+    - Check for non-standard DPI scaling
+    - Try simpler layouts (halves instead of sixths)
+  </Accordion>
+  
+  <Accordion title="Auto-organize arranges wrong windows">
+    - Minimize windows you don't want arranged
+    - Close unnecessary windows
+    - Manually position first, then fine-tune
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Consistent Shortcuts" icon="keyboard">
+    Assign keyboard shortcuts to your most-used presets
+  </Card>
+  
+  <Card title="Preview First" icon="eye">
+    Use Shift+Enter to preview complex layouts
+  </Card>
+  
+  <Card title="Start Simple" icon="shapes">
+    Master halves and quarters before using sixths
+  </Card>
+  
+  <Card title="Combine Presets" icon="layer-group">
+    Apply preset, then fine-tune with 10% adjustments
+  </Card>
+</CardGroup>
+
+## Performance
+
+### Execution Throttling
+
+Prevents rapid successive operations (src/renderer/src/WindowManagerPanel.tsx:206):
+
+```typescript
+const WINDOW_PRESET_EXECUTION_MIN_INTERVAL_MS = 14;
+
+// Queued execution ensures operations don't overlap
+windowPresetExecutionQueue = Promise.resolve();
+```
+
+This prevents visual glitches and ensures smooth animations.
+
+### Window Inventory Caching
+
+Window lists are cached briefly to reduce system calls:
+
+```typescript
+const lastInventoryAt = Date.now();
+if (Date.now() - lastInventoryAt < 100) {
+  // Use cached window list
+}
+```
+
+## Platform Support
+
+| Platform | Support Level | Notes |
+|----------|--------------|-------|
+| macOS | Full | Native window APIs |
+| Windows | Full | Win32 APIs |
+| Linux | Partial | X11/Wayland varies |
+
+<Note>
+  Linux support depends on window manager. Tested on GNOME and KDE.
+</Note>

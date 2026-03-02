@@ -1,0 +1,270 @@
+---
+title: Extensions
+description: Install and manage Raycast-compatible extensions in SuperCmd
+icon: puzzle
+---
+
+SuperCmd provides full compatibility with the Raycast extension ecosystem, allowing you to install and run thousands of community extensions without modifications.
+
+## Overview
+
+Extensions add powerful functionality to SuperCmd, from searching GitHub repositories to controlling your smart home. SuperCmd maintains 100% compatibility with Raycast extensions through a complete API compatibility layer.
+
+<Info>
+  SuperCmd can run existing Raycast extensions without requiring any code modifications. Extensions are loaded from the official Raycast extension registry.
+</Info>
+
+## Installing Extensions
+
+<Steps>
+  <Step title="Open Extension Store">
+    Press your SuperCmd hotkey (default: `Cmd+Space`) and search for **Extension Store**.
+  </Step>
+  
+  <Step title="Browse or Search">
+    Browse featured extensions or use the search bar to find specific extensions by name, description, or category.
+  </Step>
+  
+  <Step title="Install Extension">
+    Click on an extension and select **Install**. SuperCmd will:
+    - Download the extension from the Raycast registry
+    - Install dependencies using npm
+    - Make it available in your command palette
+  </Step>
+  
+  <Step title="Configure Extension">
+    Some extensions require API keys or preferences. After installation, you'll be prompted to configure required settings.
+  </Step>
+</Steps>
+
+## How Extensions Work
+
+Extensions in SuperCmd are executed using a sophisticated runtime environment:
+
+### Extension Loading Process
+
+1. **Discovery**: Extensions are loaded from `~/Library/Application Support/SuperCmd/extensions/`
+2. **Bundling**: Extension code is bundled to CommonJS using esbuild at runtime (src/main/extension-runner.ts:45)
+3. **API Shim**: A custom `require()` function provides:
+   - React (shared instance with host app)
+   - `@raycast/api` compatibility layer
+   - `@raycast/utils` utility functions
+4. **Execution**: Extensions run in isolated contexts while sharing React with the host
+
+### Platform Compatibility
+
+Extensions can specify platform requirements. SuperCmd automatically filters extensions based on your operating system:
+
+```typescript
+// From extension-platform.ts:20
+function getCurrentRaycastPlatform(): RaycastPlatform {
+  if (process.platform === 'win32') return 'Windows';
+  if (process.platform === 'linux') return 'Linux';
+  return 'macOS';
+}
+```
+
+<Note>
+  Extensions that specify platform restrictions will only appear on compatible systems.
+</Note>
+
+## Managing Extensions
+
+### Viewing Installed Extensions
+
+1. Open **Settings** (`Cmd+,` from SuperCmd)
+2. Navigate to the **Extensions** tab
+3. View all installed extensions with their status
+
+### Updating Extensions
+
+Extensions are updated automatically from the Raycast registry:
+
+- The extension catalog refreshes every 24 hours
+- You can manually check for updates in Settings > Extensions
+- Updates are installed automatically or can be deferred
+
+### Uninstalling Extensions
+
+<Steps>
+  <Step title="Open Settings">
+    Press `Cmd+,` from SuperCmd to open Settings.
+  </Step>
+  
+  <Step title="Select Extension">
+    Go to the Extensions tab and select the extension you want to remove.
+  </Step>
+  
+  <Step title="Uninstall">
+    Click **Uninstall** and confirm. The extension directory and all associated data will be removed.
+  </Step>
+</Steps>
+
+## Extension Preferences
+
+Many extensions require configuration:
+
+### Setting Preferences
+
+1. Right-click an extension command in the command palette
+2. Select **Extension Preferences**
+3. Fill in required fields (API keys, URLs, etc.)
+4. Preferences are saved automatically
+
+### Preference Types
+
+Extensions can use various preference types:
+
+- **Text**: API keys, usernames
+- **Password**: Sensitive credentials (hidden)
+- **Checkbox**: Boolean toggles
+- **Dropdown**: Predefined options
+- **File/Directory**: Path selection
+
+<Tip>
+  Extension preferences are stored securely in `~/Library/Application Support/SuperCmd/extensions/[extension-name]/preferences.json`
+</Tip>
+
+## API Compatibility
+
+SuperCmd implements the complete `@raycast/api` specification:
+
+### Core Components
+
+- ✅ List, Detail, Form, Grid
+- ✅ ActionPanel with all action types
+- ✅ Navigation stack (push/pop)
+- ✅ Toast notifications and HUD
+- ✅ MenuBarExtra for menu bar extensions
+
+### Hooks & Functions
+
+- ✅ `useFetch`, `usePromise`, `useCachedPromise`
+- ✅ `useForm` with validation
+- ✅ `useExec`, `useSQL`, `useStreamJSON`
+- ✅ Clipboard, LocalStorage, Cache APIs
+- ✅ AI integration (`AI.ask()`, `useAI()`)
+
+### System Integration
+
+- ✅ Window Management
+- ✅ Application detection
+- ✅ File system operations
+- ✅ AppleScript execution
+
+<Info>
+  For a complete API compatibility matrix, see the [CLAUDE.md](https://github.com/yourusername/supercmd/blob/main/CLAUDE.md) file in the source repository.
+</Info>
+
+## Extension Registry
+
+SuperCmd uses a Git-based extension registry strategy (src/main/extension-registry.ts):
+
+### Catalog Strategy
+
+1. **Sparse Checkout**: Only `package.json` files are fetched (fast, no full clone)
+2. **Metadata Parsing**: Extract title, description, icon, and author
+3. **Local Cache**: Full catalog cached as JSON
+4. **Auto-Refresh**: Catalog refreshes every 24 hours
+
+### Installation Process
+
+```typescript
+// Simplified installation flow
+1. Git sparse-checkout of specific extension directory
+2. Copy to ~/Library/Application Support/SuperCmd/extensions/
+3. Run npm install --production
+4. Extension becomes available immediately
+```
+
+## Creating Extensions
+
+While SuperCmd runs Raycast extensions, you can also create your own:
+
+### Development Setup
+
+1. Use the official [Raycast Extension Template](https://github.com/raycast/extensions)
+2. Develop using `@raycast/api`
+3. Test in SuperCmd without modifications
+4. Publish to the Raycast store or use locally
+
+### Local Extensions
+
+To use a local extension:
+
+```bash
+# Symlink your extension to the SuperCmd extensions folder
+ln -s /path/to/your/extension \
+  ~/Library/Application\ Support/SuperCmd/extensions/my-extension
+```
+
+SuperCmd will detect and load the extension automatically.
+
+## Troubleshooting
+
+### Extension Won't Load
+
+<AccordionGroup>
+  <Accordion title="Check platform compatibility">
+    Ensure the extension supports your operating system. Check the extension's `package.json` for platform restrictions.
+  </Accordion>
+  
+  <Accordion title="Verify dependencies">
+    Some extensions require Node.js dependencies. Check the extension directory for `node_modules` and re-run npm install if needed.
+  </Accordion>
+  
+  <Accordion title="Check preferences">
+    Missing required preferences will prevent extensions from running. Open Extension Preferences to configure.
+  </Accordion>
+</AccordionGroup>
+
+### Extension Crashes
+
+If an extension crashes:
+
+1. Check Console.app for error logs
+2. Try uninstalling and reinstalling the extension
+3. Report issues to the extension author or SuperCmd GitHub
+
+### Performance Issues
+
+If extensions run slowly:
+
+- Clear the extension cache (Settings > Extensions > Clear Cache)
+- Disable unused extensions
+- Check for extensions making frequent API calls
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Keep Extensions Updated" icon="arrows-rotate">
+    Regularly update extensions to get bug fixes and new features.
+  </Card>
+  
+  <Card title="Review Permissions" icon="shield">
+    Check what data extensions access before installing.
+  </Card>
+  
+  <Card title="Use Keyboard Shortcuts" icon="keyboard">
+    Assign shortcuts to frequently used extension commands.
+  </Card>
+  
+  <Card title="Configure Preferences" icon="sliders">
+    Take time to configure extension preferences for optimal experience.
+  </Card>
+</CardGroup>
+
+## Popular Extensions
+
+Here are some popular extensions that work great with SuperCmd:
+
+- **GitHub**: Search repositories, issues, and pull requests
+- **Google Translate**: Translate text between languages
+- **Spotify**: Control music playback
+- **1Password**: Access passwords and secure notes
+- **Todoist**: Manage tasks and projects
+- **Linear**: Track issues and project progress
+
+<Tip>
+  Browse the [Raycast Extension Store](https://www.raycast.com/store) to discover thousands of extensions compatible with SuperCmd.
+</Tip>

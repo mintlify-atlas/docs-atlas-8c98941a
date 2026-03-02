@@ -1,0 +1,631 @@
+---
+title: Electron Architecture
+description: Deep dive into SuperCmd's Electron process architecture, IPC communication, and window management
+---
+
+## Overview
+
+SuperCmd is built on Electron, leveraging a multi-process architecture that separates system operations (main process) from UI rendering (renderer process). This design provides security, stability, and native OS integration.
+
+<Note>
+The main process code lives in `src/main/`, while renderer code is in `src/renderer/`. The two processes communicate via IPC (Inter-Process Communication) through a secure preload script.
+</Note>
+
+## Process Architecture
+
+### Main Process
+
+The main process (`src/main/main.ts`) handles:
+
+<CardGroup cols={2}>
+  <Card title="Window Management" icon="window">
+    Creating, showing, hiding, and positioning windows with native glass effects
+  </Card>
+  <Card title="System Integration" icon="apple">
+    Global shortcuts, menu bar, system tray, and macOS-specific features
+  </Card>
+  <Card title="File System" icon="folder">
+    All file I/O operations, including extension installation and script execution
+  </Card>
+  <Card title="Native Modules" icon="puzzle-piece">
+    Swift binaries for speech recognition, window management, and input monitoring
+  </Card>
+</CardGroup>
+
+#### Initialization Flow
+
+```typescript
+app.whenReady().then(async () => {
+  // 1. Initialize stores
+  initSnippetStore();
+  initQuickLinkStore();
+  
+  // 2. Start background services
+  startClipboardMonitor();
+  startFileSearchIndexing();
+  
+  // 3. Register global shortcuts
+  const settings = loadSettings();
+  registerGlobalShortcut(settings.hotkey || 'Command+Space');
+  
+  // 4. Create launcher window
+  mainWindow = createLauncherWindow();
+  
+  // 5. Start window manager worker
+  ensureWindowManagerWorker();
+});
+```
+
+### Renderer Process
+
+The renderer process (`src/renderer/src/`) is a React application that:
+
+- Renders the launcher UI and extension views
+- Manages application state with React hooks
+- Communicates with main process via IPC
+- Executes extension code in isolated contexts
+
+#### Application Structure
+
+```typescript
+// src/renderer/src/App.tsx
+function App() {
+  // State management hooks
+  const viewManager = useAppViewManager();
+  const aiChat = useAiChat();
+  const menuBarExtensions = useMenuBarExtensions();
+  
+  // Route to appropriate view
+  if (viewManager.currentView === 'extension') {
+    return <ExtensionView {...viewManager.extensionProps} />;
+  }
+  
+  if (viewManager.currentView === 'ai-chat') {
+    return <AiChatView {...aiChat} />;
+  }
+  
+  // ... other views
+}
+```
+
+### Preload Script
+
+The preload script (`src/main/preload.ts`) creates a secure IPC bridge:
+
+```typescript
+// Expose safe APIs to renderer
+contextBridge.exposeInMainWorld('electron', {
+  // Window management
+  hideWindow: () => ipcRenderer.invoke('hideWindow'),
+  showWindow: () => ipcRenderer.invoke('showWindow'),
+  
+  // Extension operations
+  getExtensionBundle: (extName, cmdName) => 
+    ipcRenderer.invoke('getExtensionBundle', extName, cmdName),
+  
+  // AI operations
+  aiAsk: (prompt, options) => 
+    ipcRenderer.invoke('aiAsk', prompt, options),
+  
+  // Listeners
+  onAIStreamChunk: (callback) => {
+    ipcRenderer.on('ai-stream-chunk', (_, data) => callback(data));
+  },
+});
+```
+
+## Window Management
+
+### Launcher Window
+
+The main launcher window uses native glass effects on macOS:
+
+<Tabs>
+  <Tab title="Window Creation">
+    ```typescript
+    function createLauncherWindow(): BrowserWindow {
+      const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+      
+      const win = new BrowserWindow({
+        width: DEFAULT_WINDOW_WIDTH,
+        height: DEFAULT_WINDOW_HEIGHT,
+        x: Math.floor((width - DEFAULT_WINDOW_WIDTH) / 2),
+        y: Math.floor(height * 0.2),
+        frame: false,
+        transparent: true,
+        backgroundColor: '#00000000',
+        skipTaskbar: true,
+        alwaysOnTop: true,
+        webPreferences: {
+          preload: path.join(__dirname, 'preload.js'),
+          nodeIntegration: false,
+          contextIsolation: true,
+        },
+      });
+      
+      // Apply native glass effects
+      applyLiquidGlassToWindow(win);
+      
+      return win;
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Glass Effects">
+    ```typescript
+    function applyLiquidGlassToWindow(win: BrowserWindow): void {
+      if (process.platform !== 'darwin') return;
+      if (!isGlassyUiStyleEnabled()) return;
+      
+      const liquidGlass = getElectronLiquidGlassApi();
+      if (!liquidGlass) {
+        // Fallback to standard vibrancy
+        win.setVibrancy('under-window');
+        return;
+      }
+      
+      // Apply native glass with custom tint
+      const isDark = document.documentElement.classList.contains('dark');
+      liquidGlass.addView(win.getNativeWindowHandle(), {
+        cornerRadius: 16,
+        opaque: false,
+        tintColor: isDark ? '#10131a42' : '#f8fbff26',
+      });
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Show/Hide">
+    ```typescript
+    function showLauncher() {
+      if (!mainWindow || mainWindow.isDestroyed()) {
+        mainWindow = createLauncherWindow();
+      }
+      
+      // Center on current screen
+      const cursor = screen.getCursorScreenPoint();
+      const display = screen.getDisplayNearestPoint(cursor);
+      const { x, y, width, height } = display.workArea;
+      
+      mainWindow.setPosition(
+        x + Math.floor((width - DEFAULT_WINDOW_WIDTH) / 2),
+        y + Math.floor(height * 0.2)
+      );
+      
+      mainWindow.show();
+      mainWindow.focus();
+      isVisible = true;
+    }
+    
+    function hideLauncher() {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.hide();
+      }
+      isVisible = false;
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Detached Windows
+
+SuperCmd supports detached popup windows for features like Whisper (dictation) and Speak (TTS):
+
+```typescript
+const DETACHED_WHISPER_WINDOW_NAME = 'supercmd-whisper-window';
+const DETACHED_SPEAK_WINDOW_NAME = 'supercmd-speak-window';
+
+// Renderer requests a popup via window.open()
+const whisperWin = window.open(
+  `/whisper?sc_detached=${DETACHED_WHISPER_WINDOW_NAME}`,
+  DETACHED_WHISPER_WINDOW_NAME,
+  'width=266,height=84'
+);
+
+// Main process intercepts and creates BrowserWindow
+mainWindow.webContents.setWindowOpenHandler((details) => {
+  const popupName = resolveDetachedPopupName(details);
+  
+  if (popupName === DETACHED_WHISPER_WINDOW_NAME) {
+    const features = parsePopupFeatures(details.features);
+    const position = computeDetachedPopupPosition(
+      popupName,
+      features.width,
+      features.height
+    );
+    
+    return {
+      action: 'allow',
+      overrideBrowserWindowOptions: {
+        ...features,
+        ...position,
+        frame: false,
+        transparent: true,
+        alwaysOnTop: true,
+        skipTaskbar: true,
+      },
+    };
+  }
+  
+  return { action: 'deny' };
+});
+```
+
+## IPC Communication
+
+### Request/Response Pattern
+
+Most IPC follows a simple request/response pattern:
+
+<Tabs>
+  <Tab title="Renderer (Client)">
+    ```typescript
+    // Call from renderer
+    const bundle = await window.electron.getExtensionBundle(
+      'my-extension',
+      'search'
+    );
+    
+    console.log(bundle.code); // Bundled JavaScript
+    ```
+  </Tab>
+  
+  <Tab title="Main (Server)">
+    ```typescript
+    // Handle in main process
+    ipcMain.handle('getExtensionBundle', async (event, extName, cmdName) => {
+      try {
+        const bundle = await getExtensionBundle(extName, cmdName);
+        return bundle;
+      } catch (error) {
+        console.error('Failed to get bundle:', error);
+        throw error;
+      }
+    });
+    ```
+  </Tab>
+</Tabs>
+
+### Event Streaming
+
+For long-running operations like AI streaming, SuperCmd uses event-based communication:
+
+<Tabs>
+  <Tab title="Renderer Subscribe">
+    ```typescript
+    // Subscribe to stream chunks
+    window.electron.onAIStreamChunk((data) => {
+      if (data.requestId === myRequestId) {
+        console.log(data.chunk);
+      }
+    });
+    
+    window.electron.onAIStreamDone((data) => {
+      if (data.requestId === myRequestId) {
+        console.log('Stream complete');
+      }
+    });
+    
+    // Start request
+    await window.electron.aiAsk('Write a story', { requestId: myRequestId });
+    ```
+  </Tab>
+  
+  <Tab title="Main Emit">
+    ```typescript
+    ipcMain.handle('aiAsk', async (event, prompt, options) => {
+      const requestId = options.requestId;
+      
+      try {
+        await streamAI({
+          prompt,
+          onChunk: (chunk) => {
+            event.sender.send('ai-stream-chunk', {
+              requestId,
+              chunk,
+            });
+          },
+          onDone: () => {
+            event.sender.send('ai-stream-done', { requestId });
+          },
+        });
+      } catch (error) {
+        event.sender.send('ai-stream-error', {
+          requestId,
+          error: error.message,
+        });
+      }
+    });
+    ```
+  </Tab>
+</Tabs>
+
+## Global Shortcuts
+
+SuperCmd registers global keyboard shortcuts using Electron's `globalShortcut` API:
+
+```typescript
+function registerGlobalShortcut(accelerator: string): boolean {
+  // Unregister previous shortcut
+  if (currentShortcut) {
+    globalShortcut.unregister(currentShortcut);
+  }
+  
+  // Register new shortcut
+  const success = globalShortcut.register(accelerator, () => {
+    if (isVisible) {
+      hideLauncher();
+    } else {
+      showLauncher();
+    }
+  });
+  
+  if (success) {
+    currentShortcut = accelerator;
+    globalShortcutRegistrationState = {
+      requestedShortcut: accelerator,
+      activeShortcut: accelerator,
+      ok: true,
+    };
+  } else {
+    globalShortcutRegistrationState = {
+      requestedShortcut: accelerator,
+      activeShortcut: '',
+      ok: false,
+    };
+  }
+  
+  return success;
+}
+```
+
+### Per-Command Hotkeys
+
+Individual commands can register their own shortcuts:
+
+```typescript
+const registeredHotkeys = new Map<string, string>(); // shortcut → commandId
+
+ipcMain.handle('registerCommandHotkey', (event, commandId, accelerator) => {
+  // Unregister if already bound
+  for (const [shortcut, cmdId] of registeredHotkeys.entries()) {
+    if (cmdId === commandId) {
+      globalShortcut.unregister(shortcut);
+      registeredHotkeys.delete(shortcut);
+    }
+  }
+  
+  // Register new shortcut
+  const success = globalShortcut.register(accelerator, async () => {
+    // Execute command directly
+    await executeCommand(commandId);
+  });
+  
+  if (success) {
+    registeredHotkeys.set(accelerator, commandId);
+  }
+  
+  return success;
+});
+```
+
+## Window Manager Worker
+
+For advanced window management, SuperCmd uses a forked Node.js worker process:
+
+### Worker Architecture
+
+```typescript
+// Main process spawns worker
+const windowManagerWorker = fork(
+  path.join(__dirname, 'window-manager-worker.js'),
+  [],
+  { stdio: ['ignore', 'ignore', 'ignore', 'ipc'] }
+);
+
+// Send requests via IPC
+function callWindowManagerWorker<T>(
+  method: string,
+  payload?: any
+): Promise<T> {
+  const id = ++requestSeq;
+  
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('Worker request timeout'));
+    }, 1400);
+    
+    pending.set(id, { resolve, reject, timer });
+    
+    windowManagerWorker.send({ id, method, payload });
+  });
+}
+
+// Receive responses
+windowManagerWorker.on('message', (response) => {
+  const pending = pendingRequests.get(response.id);
+  if (!pending) return;
+  
+  clearTimeout(pending.timer);
+  
+  if (response.ok) {
+    pending.resolve(response.result);
+  } else {
+    pending.reject(new Error(response.error));
+  }
+});
+```
+
+### Worker Operations
+
+<Accordion title="List Windows">
+  ```typescript
+  const windows = await callWindowManagerWorker<WindowInfo[]>('list-windows');
+  
+  console.log(windows);
+  // [
+  //   { id: 123, title: 'Safari', path: '/Applications/Safari.app', ... },
+  //   { id: 124, title: 'Terminal', path: '/System/Applications/Terminal.app', ... }
+  // ]
+  ```
+</Accordion>
+
+<Accordion title="Get Active Window">
+  ```typescript
+  const active = await callWindowManagerWorker<WindowInfo>('get-active-window');
+  
+  console.log(active.title); // 'Visual Studio Code'
+  ```
+</Accordion>
+
+<Accordion title="Set Window Bounds">
+  ```typescript
+  await callWindowManagerWorker('set-window-bounds', {
+    id: '123',
+    x: 0,
+    y: 0,
+    width: 1920,
+    height: 1080,
+  });
+  ```
+</Accordion>
+
+## Native Protocol
+
+SuperCmd registers a custom `sc-asset://` protocol for loading extension assets:
+
+```typescript
+protocol.registerFileProtocol('sc-asset', (request, callback) => {
+  const url = request.url.replace('sc-asset://', '');
+  const [extName, ...pathParts] = url.split('/');
+  const assetPath = pathParts.join('/');
+  
+  const extPath = resolveInstalledExtensionPath(extName);
+  if (!extPath) {
+    return callback({ error: -6 }); // FILE_NOT_FOUND
+  }
+  
+  const fullPath = path.join(extPath, 'assets', assetPath);
+  
+  if (!fs.existsSync(fullPath)) {
+    return callback({ error: -6 });
+  }
+  
+  callback({ path: fullPath });
+});
+```
+
+Extensions reference assets like:
+
+```typescript
+<Image source="sc-asset://my-extension/logo.png" />
+```
+
+## Settings Management
+
+Settings are persisted as JSON and cached in memory:
+
+```typescript
+let cachedSettings: AppSettings | null = null;
+
+export function loadSettings(): AppSettings {
+  if (cachedSettings) return cachedSettings;
+  
+  const settingsPath = path.join(
+    app.getPath('userData'),
+    'settings.json'
+  );
+  
+  if (!fs.existsSync(settingsPath)) {
+    cachedSettings = getDefaultSettings();
+    saveSettings(cachedSettings);
+    return cachedSettings;
+  }
+  
+  try {
+    const raw = fs.readFileSync(settingsPath, 'utf-8');
+    cachedSettings = JSON.parse(raw);
+    return cachedSettings;
+  } catch (error) {
+    console.error('Failed to load settings:', error);
+    return getDefaultSettings();
+  }
+}
+
+export function saveSettings(partial: Partial<AppSettings>): void {
+  const current = loadSettings();
+  const updated = { ...current, ...partial };
+  
+  const settingsPath = path.join(
+    app.getPath('userData'),
+    'settings.json'
+  );
+  
+  fs.writeFileSync(settingsPath, JSON.stringify(updated, null, 2));
+  cachedSettings = updated;
+  
+  // Notify renderer
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('settings-updated', updated);
+  }
+}
+```
+
+## Performance Optimizations
+
+<CardGroup cols={2}>
+  <Card title="Window Pooling" icon="layer-group">
+    Reuse hidden windows instead of creating new ones for better performance
+  </Card>
+  <Card title="IPC Batching" icon="boxes-stacked">
+    Group related IPC calls to reduce round-trips
+  </Card>
+  <Card title="Worker Processes" icon="gears">
+    Offload expensive operations to separate processes
+  </Card>
+  <Card title="Lazy Loading" icon="hourglass">
+    Load extension code only when needed
+  </Card>
+</CardGroup>
+
+### Blur-Hide Debouncing
+
+To prevent accidental hiding during file dialogs:
+
+```typescript
+let suppressBlurHide = false;
+
+mainWindow.on('blur', () => {
+  if (suppressBlurHide) return;
+  if (oauthBlurHideSuppressionDepth > 0) return;
+  
+  // Hide after a small delay
+  setTimeout(() => {
+    if (!mainWindow.isFocused() && !suppressBlurHide) {
+      hideLauncher();
+    }
+  }, 100);
+});
+
+// Temporarily suppress blur-hide
+ipcMain.on('openFilePicker', () => {
+  suppressBlurHide = true;
+  dialog.showOpenDialog({ /* ... */ }).then(() => {
+    suppressBlurHide = false;
+  });
+});
+```
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Extension Runtime" href="./extension-runtime" icon="gear">
+    How extensions are bundled and executed
+  </Card>
+  <Card title="Raycast API" href="./raycast-api" icon="code">
+    Complete API compatibility reference
+  </Card>
+  <Card title="Native Modules" href="./native-modules" icon="apple">
+    Swift integration for macOS features
+  </Card>
+</CardGroup>

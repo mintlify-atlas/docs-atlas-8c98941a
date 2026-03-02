@@ -1,0 +1,290 @@
+---
+title: 'API Status'
+description: 'Implementation status of Raycast API compatibility'
+icon: 'check'
+---
+
+SuperCmd maintains comprehensive compatibility with the Raycast API. This page tracks the implementation status of all APIs.
+
+<Note>
+SuperCmd is compatible with Raycast API version **1.80.0**. All implemented features match the official Raycast API specification.
+</Note>
+
+## @raycast/api - Core Components
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| `List` | ✅ Implemented | Full support with filtering, pagination, accessories, List.Item.Detail with Metadata |
+| `Detail` | ✅ Implemented | With Metadata support (Label, Link, TagList, Separator) |
+| `Form` | ✅ Implemented | All field types; DatePicker.Type enum; FilePicker with showHiddenFiles; LinkAccessory; enableDrafts |
+| `Grid` | ✅ Implemented | Grid.Fit/Inset enums; Section with aspectRatio/columns/fit/inset; Item.accessory |
+| `ActionPanel` | ✅ Implemented | Full action panel; Submenu with filtering/isLoading/onOpen/shortcut |
+| `Action` | ✅ Implemented | Open, OpenInBrowser, Push (onPop), CopyToClipboard (concealed), ToggleQuickLook, PickDate.Type |
+| `MenuBarExtra` | ✅ Implemented | Menu bar integration with Item, Section, Separator, Submenu |
+
+---
+
+## @raycast/api - Hooks
+
+| Hook | Status | Notes |
+|------|--------|-------|
+| `useNavigation` | ✅ Implemented | Push/pop navigation stack |
+
+---
+
+## @raycast/api - Functions
+
+| Function | Status | Notes |
+|----------|--------|-------|
+| `showToast` | ✅ Implemented | Toast notifications with actions and keyboard shortcuts (⌘T menu) |
+| `showHUD` | ✅ Implemented | HUD overlay |
+| `confirmAlert` | ✅ Implemented | Alert dialogs |
+| `open` | ✅ Implemented | Open URLs/applications; supports `application` parameter |
+| `closeMainWindow` | ✅ Implemented | Window management |
+| `popToRoot` | ✅ Implemented | Navigation reset |
+| `launchCommand` | ✅ Implemented | Command launching with context |
+| `getSelectedText` | ⚠️ Partial | May need macOS accessibility permissions |
+| `getSelectedFinderItems` | ⚠️ Partial | May need macOS accessibility permissions |
+| `getApplications` | ✅ Implemented | Application listing; optional directory path filter |
+| `getDefaultApplication` | ✅ Implemented | Get default app for a file path |
+| `getFrontmostApplication` | ✅ Implemented | Active app detection |
+| `captureException` | ✅ Implemented | Logs exception to console (error reporting) |
+| `trash` | ✅ Implemented | File deletion |
+| `openExtensionPreferences` | ✅ Implemented | Opens settings window |
+| `openCommandPreferences` | ✅ Implemented | Opens settings window |
+| `updateCommandMetadata` | ✅ Implemented | Dynamic metadata updates (subtitle) |
+| `clearSearchBar` | ✅ Implemented | Search bar control |
+| `getPreferenceValues` | ✅ Implemented | Returns extension preferences from context |
+| `showInFinder` | ✅ Implemented | Opens Finder at file path |
+
+---
+
+## @raycast/api - Objects & Utilities
+
+| Object/Utility | Status | Notes |
+|----------------|--------|-------|
+| `environment` | ✅ Implemented | Extension context & system info (extensionName, commandName, appearance, etc.) |
+| `Clipboard` | ✅ Implemented | Full clipboard operations (text, HTML, file support) |
+| `LocalStorage` | ✅ Implemented | Persistent storage with automatic extension scoping |
+| `Cache` | ✅ Implemented | LRU caching system with capacity limits |
+| `Toast` | ✅ Implemented | Toast class with styles and action support |
+| `Icon` | ✅ Implemented | Icon mapping (emoji fallback via Phosphor icons) |
+| `Color` | ✅ Implemented | Color constants |
+| `Image` | ✅ Implemented | Image utilities |
+| `Keyboard` | ✅ Implemented | Keyboard shortcuts |
+| `AI` | ✅ Implemented | AI integration (Ollama/OpenAI/Anthropic/Gemini); ask() with streaming |
+| `LaunchType` | ✅ Implemented | Launch type enum (UserInitiated, Background) |
+| `Alert` | ✅ Implemented | Alert namespace (ActionStyle, Options) |
+| `WindowManagement` | ✅ Implemented | Window management API |
+| `PopToRootType` | ✅ Implemented | Enum for pop-to-root behavior |
+| `DeeplinkType` | ✅ Implemented | Enum for deeplink types (Extension, ScriptCommand) |
+| `FormValidation` | ✅ Implemented | Enum for form validation (Required) |
+| `Preferences` | ✅ Implemented | Type export |
+| `LaunchContext` | ✅ Implemented | Type export |
+| `Preference` | ✅ Implemented | Interface with all preference type properties |
+| `PreferenceValues` | ✅ Implemented | Record type for preference values |
+| `Application` | ✅ Implemented | Type export (name, path, bundleId) |
+| `FileSystemItem` | ✅ Implemented | Type export |
+| `LaunchProps` | ✅ Implemented | Type export |
+| `LaunchOptions` | ✅ Implemented | Type export |
+| `Tool` | ✅ Implemented | Tool namespace with Confirmation type |
+| `BrowserExtension` | ⚠️ Stub | Typed stub (Tab, ContentOptions); getContent/getTabs return empty defaults |
+| `OAuth` | ✅ Implemented | Full OAuth flow with PKCE, provider presets, withAccessToken HOC |
+
+---
+
+## @raycast/utils - Hooks
+
+| Hook | Status | Notes |
+|------|--------|-------|
+| `useFetch` | ✅ Implemented | HTTP fetching with pagination, optimistic mutate, full options |
+| `useCachedPromise` | ✅ Implemented | Promise caching with abortable, onWillExecute |
+| `useCachedState` | ✅ Implemented | State with persistence, cacheNamespace support |
+| `usePromise` | ✅ Implemented | Promise handling with mutate/revalidate |
+| `useForm` | ✅ Implemented | Form state with FormValidation enum |
+| `useExec` | ✅ Implemented | Command execution with stripFinalNewline, timeout, two overloads |
+| `useSQL` | ✅ Implemented | SQLite queries with permissionView, full callbacks |
+| `useStreamJSON` | ✅ Implemented | Streaming JSON with filter/transform/dataPath/pageSize |
+| `useAI` | ✅ Implemented | AI streaming with onError/onData/onWillExecute callbacks |
+| `useFrecencySorting` | ✅ Implemented | Frecency sorting with localStorage persistence |
+| `useLocalStorage` | ✅ Implemented | LocalStorage hook with change event synchronization |
+
+---
+
+## @raycast/utils - Functions
+
+| Function | Status | Notes |
+|----------|--------|-------|
+| `getFavicon` | ✅ Implemented | Favicon fetching via Google favicon service |
+| `getAvatarIcon` | ✅ Implemented | SVG avatar from name initials with deterministic colors |
+| `getProgressIcon` | ✅ Implemented | SVG circular progress indicator |
+| `runAppleScript` | ✅ Implemented | AppleScript execution via Electron IPC |
+| `showFailureToast` | ✅ Implemented | Error toast helper with consistent formatting |
+| `createDeeplink` | ✅ Implemented | Generate deeplink URIs for extensions/scripts |
+| `executeSQL` | ✅ Implemented | Standalone SQLite query execution |
+| `withCache` | ✅ Implemented | Cache wrapper for async functions with maxAge/validate |
+
+---
+
+## Component Features
+
+### List Component
+- ✅ Search bar with filtering
+- ✅ Keyboard navigation (arrows, enter, escape)
+- ✅ Item accessories
+- ✅ Sections with titles
+- ✅ Detail panel with metadata
+- ✅ Emoji grid mode (auto-detected)
+- ✅ Empty view support
+- ✅ Dropdown accessory
+- ✅ Action panel integration
+- ✅ Selection change callbacks
+- ✅ Controlled search text
+
+### Detail Component
+- ✅ Markdown rendering
+- ✅ Metadata sidebar
+- ✅ Metadata.Label
+- ✅ Metadata.Link
+- ✅ Metadata.TagList
+- ✅ Metadata.Separator
+- ✅ Action panel integration
+- ✅ Loading state
+- ✅ Image resolution (sc-asset://, file://, http://)
+
+### Form Component
+- ✅ TextField
+- ✅ TextArea
+- ✅ Dropdown
+- ✅ Checkbox
+- ✅ DatePicker
+- ✅ FilePicker
+- ✅ PasswordField
+- ✅ Separator
+- ✅ Description
+- ✅ Validation support
+- ✅ Draft values
+- ✅ Action.SubmitForm integration
+
+### Grid Component
+- ✅ Configurable columns
+- ✅ Search and filtering
+- ✅ Sections
+- ✅ Keyboard navigation (2D grid)
+- ✅ Item accessories
+- ✅ Action panel integration
+- ✅ Empty view support
+
+### ActionPanel
+- ✅ Action.Open
+- ✅ Action.OpenInBrowser
+- ✅ Action.Push (with onPop callback)
+- ✅ Action.Pop
+- ✅ Action.CopyToClipboard (concealed option)
+- ✅ Action.Paste
+- ✅ Action.SubmitForm
+- ✅ Action.ShowInFinder
+- ✅ Action.Trash
+- ✅ Action.PickDate
+- ✅ Action.ToggleQuickLook
+- ✅ ActionPanel.Submenu
+- ✅ Keyboard shortcuts (⌘K overlay)
+- ✅ Shortcut rendering in UI
+
+### MenuBarExtra
+- ✅ Menu bar icon and title
+- ✅ MenuBarExtra.Item
+- ✅ MenuBarExtra.Section
+- ✅ MenuBarExtra.Separator
+- ✅ MenuBarExtra.Submenu
+- ✅ onAction callbacks
+- ✅ Loading state
+- ✅ Tooltip support
+
+---
+
+## Known Limitations
+
+<Warning>
+The following APIs have known limitations or require additional setup:
+</Warning>
+
+### Partial Implementations
+
+1. **getSelectedText / getSelectedFinderItems**
+   - Require macOS accessibility permissions
+   - May not work in all contexts
+   - Status: ⚠️ Partial
+
+2. **BrowserExtension**
+   - Currently a typed stub
+   - getContent/getTabs return empty defaults
+   - Requires browser extension integration
+   - Status: ⚠️ Stub
+
+### Platform-Specific Notes
+
+- **AppleScript**: macOS only
+- **Finder integration**: macOS only
+- **Window Management**: macOS window manager APIs
+- **Clipboard file support**: Best on macOS
+
+---
+
+## Version Compatibility
+
+<Accordion title="Raycast API Version Tracking">
+
+**Current Raycast Version:** 1.80.0
+
+SuperCmd tracks the official Raycast API and maintains compatibility with the latest stable release. When Raycast releases new API features, SuperCmd is updated to match.
+
+**API Reference:** https://developers.raycast.com/api-reference/
+
+**Breaking Changes:** SuperCmd monitors Raycast releases for breaking changes and updates accordingly.
+
+</Accordion>
+
+---
+
+## Testing & Validation
+
+All implemented APIs are tested with:
+
+- ✅ Real Raycast extensions from the official store
+- ✅ Type compatibility with `@raycast/api` type definitions
+- ✅ Behavior matching official Raycast implementation
+- ✅ Edge cases and error handling
+
+---
+
+## Contributing
+
+If you find an API incompatibility or missing feature:
+
+1. Check this status page for known limitations
+2. Verify the issue with an official Raycast extension
+3. Report the issue on GitHub with:
+   - Extension name and command
+   - Expected behavior (from Raycast)
+   - Actual behavior (in SuperCmd)
+   - API version from `environment.raycastVersion`
+
+---
+
+## Future Roadmap
+
+<Steps>
+  <Step title="Complete BrowserExtension API">
+    Add browser extension integration for tab/content access
+  </Step>
+  <Step title="Enhanced Permissions">
+    Improve accessibility permission handling for getSelectedText/getSelectedFinderItems
+  </Step>
+  <Step title="Performance Optimizations">
+    Optimize large list rendering and caching
+  </Step>
+  <Step title="100% API Parity">
+    Achieve complete feature parity with all Raycast APIs
+  </Step>
+</Steps>

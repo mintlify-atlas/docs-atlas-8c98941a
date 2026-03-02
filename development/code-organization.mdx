@@ -1,0 +1,313 @@
+---
+title: Code Organization
+description: Understanding SuperCmd's codebase structure and architecture
+---
+
+SuperCmd follows a modular architecture with clear separation between system operations, UI rendering, and extension compatibility. This guide explains how the codebase is organized.
+
+## Project Structure
+
+```text
+launcher/
+├── src/
+│   ├── main/           # Electron main process
+│   ├── renderer/       # React UI (Vite-powered)
+│   └── native/         # Swift helpers for macOS
+├── extensions/         # Installed extension data
+└── dist/              # Build output
+```
+
+## Main Process (`src/main/`)
+
+The Electron main process handles system operations, extension management, and IPC communication.
+
+<Accordion title="Key Files">
+  <AccordionItem title="main.ts">
+    Entry point; IPC handlers, window management, global shortcuts
+  </AccordionItem>
+  
+  <AccordionItem title="preload.ts">
+    contextBridge — exposes `window.electron` API to renderer
+  </AccordionItem>
+  
+  <AccordionItem title="commands.ts">
+    App/settings/extension/script discovery; `getAvailableCommands()` with cache
+  </AccordionItem>
+  
+  <AccordionItem title="extension-runner.ts">
+    Extension execution engine (esbuild bundle + require shim)
+  </AccordionItem>
+  
+  <AccordionItem title="extension-registry.ts">
+    Extension catalog, install, uninstall, update
+  </AccordionItem>
+  
+  <AccordionItem title="script-command-runner.ts">
+    Raycast-compatible script command execution
+  </AccordionItem>
+  
+  <AccordionItem title="ai-provider.ts">
+    AI streaming (OpenAI / Anthropic / Ollama) via Node http/https
+  </AccordionItem>
+  
+  <AccordionItem title="settings-store.ts">
+    JSON settings persistence (AppSettings, cached in memory)
+  </AccordionItem>
+</Accordion>
+
+### Main Process Responsibilities
+
+- Handles system operations (file system, applications, clipboard)
+- Manages extension loading and execution
+- Provides IPC bridge between main and renderer
+- Manages global shortcuts and window state
+- Executes native Swift binaries
+
+## Renderer Process (`src/renderer/`)
+
+The React-based UI that renders the launcher interface and executes extensions.
+
+### Renderer Structure
+
+```text
+src/renderer/
+├── types/
+│   └── electron.d.ts          # TypeScript types for window.electron IPC
+├── styles/                    # Global styles
+└── src/
+    ├── App.tsx                # Root component — orchestrates hooks and routing
+    ├── raycast-api/            # @raycast/api compatibility layer
+    ├── hooks/                 # Feature hooks (state + logic, no JSX)
+    ├── views/                 # Full-screen view components (pure UI)
+    ├── components/            # Reusable React components
+    ├── settings/              # Settings window UI
+    ├── utils/                 # Pure utility modules
+    └── ExtensionView.tsx      # Renders Raycast extensions
+```
+
+### App.tsx - The Orchestrator
+
+<Warning>
+`App.tsx` is the orchestrator: it wires hooks together and routes to the correct view. Avoid adding business logic directly to it.
+</Warning>
+
+The root component composes all hooks and routes to view components based on application state.
+
+### Hooks (`src/renderer/src/hooks/`)
+
+Feature hooks contain state and logic without JSX. Each major feature has a dedicated hook:
+
+<Accordion title="Core Hooks">
+  <AccordionItem title="useAppViewManager.ts">
+    View state machine — which screen is active
+  </AccordionItem>
+  
+  <AccordionItem title="useAiChat.ts">
+    AI chat mode state + streaming
+  </AccordionItem>
+  
+  <AccordionItem title="useCursorPrompt.ts">
+    Inline AI cursor prompt state + streaming
+  </AccordionItem>
+  
+  <AccordionItem title="useMenuBarExtensions.ts">
+    Menu-bar extension lifecycle
+  </AccordionItem>
+  
+  <AccordionItem title="useBackgroundRefresh.ts">
+    Interval-based background refresh for extensions/scripts
+  </AccordionItem>
+  
+  <AccordionItem title="useSpeakManager.ts">
+    TTS (Read) overlay state + portal
+  </AccordionItem>
+  
+  <AccordionItem title="useWhisperManager.ts">
+    Whisper STT overlay state + portals
+  </AccordionItem>
+</Accordion>
+
+### Views (`src/renderer/src/views/`)
+
+Full-screen view components are pure UI with no business logic. State comes from hooks.
+
+- `AiChatView.tsx` — Full-screen AI chat panel
+- `CursorPromptView.tsx` — Inline/portal AI cursor prompt UI
+- `ScriptCommandSetupView.tsx` — Script argument collection form
+- `ScriptCommandOutputView.tsx` — Script stdout/stderr output viewer
+- `ExtensionPreferenceSetupView.tsx` — Extension preference/argument form
+
+### Utils (`src/renderer/src/utils/`)
+
+Pure utility modules with no side-effects:
+
+- `constants.ts` — localStorage keys, magic numbers, error strings
+- `command-helpers.tsx` — filterCommands, icon renderers, display helpers
+- `extension-preferences.ts` — localStorage helpers, preference hydration
+
+## Raycast API Layer (`src/renderer/src/raycast-api/`)
+
+The compatibility layer that implements `@raycast/api` and `@raycast/utils` for Raycast extensions.
+
+### Architecture
+
+The Raycast API is modularized into focused runtime files:
+
+```text
+raycast-api/
+├── index.tsx                      # Integration/export surface
+├── action-runtime*.tsx            # Action/ActionPanel runtime
+├── list-runtime*.tsx              # List runtime
+├── form-runtime*.tsx              # Form runtime
+├── grid-runtime*.tsx              # Grid runtime
+├── detail-runtime.tsx             # Detail runtime
+├── menubar-runtime*.tsx           # MenuBarExtra runtime
+├── icon-runtime*.tsx              # Icon resolution and rendering
+├── platform-runtime.ts            # Platform APIs
+├── misc-runtime.ts                # Misc API exports
+├── utility-runtime.ts             # Utility helpers
+├── storage-events.ts              # Storage change events
+├── context-scope-runtime.ts       # Extension context snapshots
+├── oauth/                         # OAuth implementation
+└── hooks/                         # @raycast/utils hooks
+```
+
+### Key Runtime Files
+
+<Accordion title="Component Runtimes">
+  <AccordionItem title="action-runtime*.tsx">
+    Action/ActionPanel components, action registry, shortcuts, overlay rendering
+  </AccordionItem>
+  
+  <AccordionItem title="list-runtime*.tsx">
+    List container, item registry, filtering, grouping, detail view, renderers
+  </AccordionItem>
+  
+  <AccordionItem title="form-runtime*.tsx">
+    Form container, field components (TextField, Dropdown, DatePicker, etc.), form context
+  </AccordionItem>
+  
+  <AccordionItem title="grid-runtime*.tsx">
+    Grid container, item registry, section grouping, cell renderers
+  </AccordionItem>
+  
+  <AccordionItem title="icon-runtime*.tsx">
+    Icon resolution (Phosphor mapping), asset path normalization, icon rendering
+  </AccordionItem>
+</Accordion>
+
+### Raycast API File Map
+
+When working in the Raycast compatibility layer, use this map to find the right file:
+
+- **Top-level wiring**: `index.tsx`
+- **Actions**: `action-runtime*.tsx` files
+- **Lists**: `list-runtime*.tsx` files
+- **Forms**: `form-runtime*.tsx` files
+- **Grids**: `grid-runtime*.tsx` files
+- **Icons**: `icon-runtime*.tsx` files
+- **Platform APIs**: `platform-runtime.ts`
+- **Utilities**: `utility-runtime.ts`
+- **OAuth**: `oauth/` directory
+- **Hooks**: `hooks/` directory
+
+See [CLAUDE.md - Raycast API File Map](https://github.com/SuperCmdLabs/SuperCmd/blob/main/CLAUDE.md#raycast-api-file-map) for detailed descriptions of each file.
+
+## Native Modules (`src/native/`)
+
+Swift binaries for macOS-native features:
+
+- `color-picker.swift` — Native color picker
+- `snippet-expander.swift` — Text snippet expansion
+- `hotkey-hold-monitor.swift` — Hold-to-speak hotkey detection
+- `speech-recognizer.swift` — Native speech recognition
+- `microphone-access.swift` — Microphone permission checking
+- `input-monitoring-request.swift` — Input monitoring permissions
+- `window-adjust.swift` — Window management and positioning
+
+### Building Native Modules
+
+```bash
+npm run build:native
+```
+
+This compiles all Swift binaries into `dist/native/`.
+
+## Extension Execution Model
+
+How Raycast extensions run in SuperCmd:
+
+<Steps>
+  <Step title="Extension Loading">
+    Extensions are loaded from the Raycast extension registry
+  </Step>
+
+  <Step title="Code Bundling">
+    Extension code is bundled using esbuild to CommonJS
+  </Step>
+
+  <Step title="Runtime Shim">
+    A custom `require()` function provides:
+    - React (shared instance with host app)
+    - `@raycast/api` shim (our compatibility layer)
+    - `@raycast/utils` shim (utility hooks and functions)
+  </Step>
+
+  <Step title="Isolation">
+    Extensions run in isolated contexts but share React with the host to ensure proper React context and hooks work correctly
+  </Step>
+</Steps>
+
+## IPC Communication Pattern
+
+Communication between renderer and main process:
+
+```typescript
+// Renderer: Request data from main process
+const result = await window.electron.ipcRenderer.invoke('get-applications');
+
+// Main: Handle IPC request
+ipcMain.handle('get-applications', async () => {
+  return getApplicationList();
+});
+
+// Preload: Expose secure IPC bridge
+contextBridge.exposeInMainWorld('electron', {
+  ipcRenderer: {
+    invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args)
+  }
+});
+```
+
+## Configuration and Settings
+
+### Settings Storage
+
+All app settings are persisted in:
+
+```
+~/Library/Application Support/SuperCmd/settings.json
+```
+
+### Extension Storage
+
+Extensions use:
+- `LocalStorage` — Persistent storage (per-extension)
+- `Cache` — Temporary caching (per-extension)
+
+Both are scoped to the extension context and stored separately.
+
+## Build Output
+
+```text
+dist/
+├── main/          # Compiled main process (TypeScript → JavaScript)
+├── renderer/      # Compiled renderer (Vite build)
+└── native/        # Compiled Swift binaries
+```
+
+## Next Steps
+
+- Learn about [Contributing](./contributing) to SuperCmd
+- Understand [Testing](./testing) strategies
+- Check [Troubleshooting](./troubleshooting) for common issues

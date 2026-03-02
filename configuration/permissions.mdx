@@ -1,0 +1,293 @@
+---
+title: macOS Permissions
+description: Configure the system permissions SuperCmd needs to function
+---
+
+## Overview
+
+SuperCmd requires several macOS permissions to provide its core features. The app will prompt you for these permissions on first use, or you can grant them manually in **System Settings → Privacy & Security**.
+
+<Note>
+You may need to restart SuperCmd after granting permissions for them to take effect.
+</Note>
+
+## Required Permissions
+
+These permissions are essential for SuperCmd's core functionality:
+
+### Accessibility
+
+**Why it's needed:**
+- Window management (tiling, resizing, positioning)
+- Snippet expansion (keyboard injection)
+- Getting selected text from other apps
+
+**How to enable:**
+
+<Steps>
+  <Step title="Open System Settings">
+    Go to **System Settings → Privacy & Security → Accessibility**
+  </Step>
+  <Step title="Add SuperCmd">
+    Click the **+** button and select SuperCmd from Applications
+  </Step>
+  <Step title="Enable the toggle">
+    Ensure SuperCmd is checked in the list
+  </Step>
+  <Step title="Restart SuperCmd">
+    Quit and relaunch the app
+  </Step>
+</Steps>
+
+<Warning>
+Without Accessibility permission, window management and snippet expansion will not work.
+</Warning>
+
+**Technical details:**
+
+SuperCmd uses the macOS Accessibility API (`AXIsProcessTrusted()`) to:
+- Query window positions and sizes
+- Move and resize windows programmatically
+- Inject keystrokes for snippet expansion
+- Read selected text via AppleScript
+
+**Source:** `src/native/window-adjust.swift`, `src/native/snippet-expander.swift`
+
+---
+
+### Input Monitoring
+
+**Why it's needed:**
+- Detect global keyboard shortcuts (launcher hotkey, hold-to-speak)
+- Monitor modifier keys (Fn key for voice input)
+- Per-command hotkeys
+
+**How to enable:**
+
+<Steps>
+  <Step title="Open System Settings">
+    Go to **System Settings → Privacy & Security → Input Monitoring**
+  </Step>
+  <Step title="Add SuperCmd">
+    Click the **+** button and select SuperCmd
+  </Step>
+  <Step title="Enable the toggle">
+    Ensure SuperCmd is checked
+  </Step>
+  <Step title="Restart SuperCmd">
+    Quit and relaunch the app
+  </Step>
+</Steps>
+
+<Warning>
+Without Input Monitoring, the global hotkey (e.g., Alt+Space) will not work.
+</Warning>
+
+**Technical details:**
+
+SuperCmd uses:
+- `CGEventTapCreate()` to listen for global key events
+- `IOHIDManager` to detect Fn key holds
+- Electron's `globalShortcut` API (requires Input Monitoring)
+
+**Source:** `src/native/hotkey-hold-monitor.swift`, `src/main/main.ts` (globalShortcut registration)
+
+---
+
+## Optional Permissions
+
+These permissions enable additional features:
+
+### Microphone
+
+**Why it's needed:**
+- Voice input (hold-to-speak dictation)
+- Whisper speech-to-text
+
+**When it's required:**
+- Only if you plan to use voice input features
+- Prompted when you first try to use voice input
+
+**How to enable:**
+
+<Steps>
+  <Step title="Open System Settings">
+    Go to **System Settings → Privacy & Security → Microphone**
+  </Step>
+  <Step title="Add SuperCmd">
+    Click the **+** button and select SuperCmd
+  </Step>
+  <Step title="Enable the toggle">
+    Ensure SuperCmd is checked
+  </Step>
+</Steps>
+
+<Info>
+If you don't use voice input, you can safely skip this permission.
+</Info>
+
+**Technical details:**
+
+SuperCmd uses:
+- `AVAudioEngine` for audio capture
+- `SFSpeechRecognizer` for native speech recognition
+- OpenAI Whisper API for transcription (when configured)
+
+**Source:** `src/native/speech-recognizer.swift`, `src/main/ai-provider.ts` (transcribeAudio)
+
+---
+
+### Automation (AppleScript)
+
+**Why it's needed:**
+- Get selected text from the frontmost app
+- Get selected files in Finder
+- Extension actions that use AppleScript
+
+**When it's required:**
+- When extensions call `getSelectedText()` or `getSelectedFinderItems()`
+- For extensions that automate other apps
+
+**How to enable:**
+
+<Steps>
+  <Step title="Open System Settings">
+    Go to **System Settings → Privacy & Security → Automation**
+  </Step>
+  <Step title="Find SuperCmd">
+    Look for SuperCmd in the app list
+  </Step>
+  <Step title="Enable target apps">
+    Check the boxes for apps SuperCmd should automate (e.g., Finder, Safari)
+  </Step>
+</Steps>
+
+<Info>
+macOS will automatically prompt you the first time SuperCmd tries to automate an app.
+</Info>
+
+**Technical details:**
+
+SuperCmd uses AppleScript to:
+- Extract selected text: `tell application "System Events" to get value of attribute "AXSelectedText"`
+- Get Finder selection: `tell application "Finder" to get selection`
+
+**Source:** `src/main/main.ts` (IPC handler for `get-selected-text`)
+
+---
+
+## Permission Summary
+
+| Permission | Required | Purpose |
+|---|---|---|
+| **Accessibility** | ✅ Yes | Window management, snippet expansion |
+| **Input Monitoring** | ✅ Yes | Global hotkeys, launcher shortcut |
+| **Microphone** | ⚠️ Optional | Voice input, speech-to-text |
+| **Automation** | ⚠️ Optional | Selected text capture, Finder integration |
+
+## Checking Permission Status
+
+SuperCmd includes native helpers to check permission status:
+
+### Accessibility Check
+
+```swift
+// src/native/window-adjust.swift
+if !AXIsProcessTrusted() {
+  print("ERROR: Accessibility permission not granted")
+  exit(1)
+}
+```
+
+### Microphone Check
+
+```swift
+// src/native/microphone-access.swift
+let status = AVCaptureDevice.authorizationStatus(for: .audio)
+if status != .authorized {
+  print("not-authorized")
+}
+```
+
+### Input Monitoring Check
+
+SuperCmd attempts to register a global shortcut and reports failure if Input Monitoring is missing.
+
+**Source:** `src/native/input-monitoring-request.swift`
+
+## Troubleshooting
+
+<Accordion title="Global hotkey doesn't work">
+  1. Open **System Settings → Privacy & Security → Input Monitoring**
+  2. Ensure SuperCmd is in the list and enabled
+  3. If not listed, remove and re-add it
+  4. Restart SuperCmd
+  5. Try a different hotkey combination in Settings
+</Accordion>
+
+<Accordion title="Window management doesn't work">
+  1. Open **System Settings → Privacy & Security → Accessibility**
+  2. Ensure SuperCmd is enabled
+  3. If already enabled, uncheck and re-check the box
+  4. Restart SuperCmd
+  5. Test by searching for "Window Management" in the launcher
+</Accordion>
+
+<Accordion title="Voice input doesn't work">
+  1. Check **System Settings → Privacy & Security → Microphone**
+  2. Ensure SuperCmd is enabled
+  3. Test microphone with another app (Voice Memos)
+  4. Check AI settings (must have Whisper configured)
+  5. Check `/var/log/system.log` for audio capture errors
+</Accordion>
+
+<Accordion title="'Permission denied' when trying to grant permissions">
+  This usually means your macOS user account doesn't have admin privileges:
+  1. Log in with an admin account
+  2. Grant permissions
+  3. Switch back to your standard account
+  
+  Or use System Settings to promote your account to admin temporarily.
+</Accordion>
+
+<Accordion title="Permissions keep getting revoked">
+  This can happen if:
+  1. The app signature changed (development builds vs. signed releases)
+  2. macOS security policy changed
+  3. The app was moved after permissions were granted
+  
+  Solution: Remove SuperCmd from all permission lists, then re-add it.
+</Accordion>
+
+## Resetting Permissions
+
+To completely reset all permissions:
+
+```bash
+# Remove SuperCmd from all permission databases
+tccutil reset Accessibility com.supercmd.app
+tccutil reset ListenEvent com.supercmd.app
+tccutil reset Microphone com.supercmd.app
+tccutil reset AppleEvents com.supercmd.app
+```
+
+<Warning>
+You'll need to re-grant all permissions after running these commands.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Settings" icon="gear" href="/configuration/settings">
+    Configure app settings
+  </Card>
+  <Card title="AI Providers" icon="brain" href="/configuration/ai-providers">
+    Set up AI integrations
+  </Card>
+  <Card title="Hotkeys" icon="keyboard" href="/configuration/hotkeys">
+    Customize keyboard shortcuts
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/development/troubleshooting">
+    Common issues and solutions
+  </Card>
+</CardGroup>

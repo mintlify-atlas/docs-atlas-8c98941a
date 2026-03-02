@@ -1,0 +1,220 @@
+---
+title: Extensions Overview
+description: Learn how SuperCmd runs Raycast extensions with full compatibility
+---
+
+SuperCmd provides full compatibility with the Raycast extension ecosystem, allowing you to install and run thousands of community extensions without modification.
+
+## How Extensions Work
+
+Extensions in SuperCmd are built on the same architecture as Raycast, ensuring complete compatibility:
+
+<Steps>
+  <Step title="Extension Discovery">
+    SuperCmd fetches the extension catalog from the [Raycast Extensions GitHub repository](https://github.com/raycast/extensions) using a sparse Git checkout strategy for fast catalog updates.
+  </Step>
+  
+  <Step title="Installation">
+    When you install an extension, SuperCmd:
+    - Downloads only the specific extension directory using Git sparse-checkout
+    - Copies it to `~/Library/Application Support/SuperCmd/extensions/`
+    - Installs npm dependencies (excluding `@raycast/api` which is shimmed)
+    - Pre-builds all commands using esbuild for instant execution
+  </Step>
+  
+  <Step title="Command Bundling">
+    Each extension command is bundled to CommonJS format with:
+    - React and React DOM kept external (shared with host app)
+    - `@raycast/api` and `@raycast/utils` marked as external (provided by SuperCmd's compatibility shim)
+    - Node.js built-ins and third-party dependencies handled appropriately
+  </Step>
+  
+  <Step title="Runtime Execution">
+    At runtime, SuperCmd provides a custom `require()` function that:
+    - Supplies the React instance from the host app
+    - Provides the full `@raycast/api` compatibility layer
+    - Implements `@raycast/utils` hooks and utilities
+    - Bridges system operations through Electron IPC
+  </Step>
+</Steps>
+
+## Extension Catalog Strategy
+
+SuperCmd uses an efficient strategy to access the Raycast extension catalog:
+
+```typescript
+// From extension-registry.ts:694-725
+async function fetchCatalogFromGitHub(): Promise<CatalogEntry[]> {
+  // Sparse clone: only tree structure, no blobs
+  await runGitCommand(
+    tmpDir,
+    `clone --depth 1 --filter=blob:none --sparse "${REPO_URL}" "${tmpDir}"`,
+    60_000
+  );
+
+  // Checkout only package manifests (fast)
+  await runGitCommand(
+    tmpDir,
+    'sparse-checkout set --no-cone "extensions/*/package.json"',
+    120_000
+  );
+
+  // Parse each package.json for metadata
+  return readCatalogEntriesFromExtensionsDir(extensionsDir);
+}
+```
+
+<Note>
+  The catalog is cached locally for 24 hours to minimize network requests and improve performance.
+</Note>
+
+## Build Strategy
+
+Extensions are pre-built at install time for instant execution:
+
+```typescript
+// From extension-runner.ts:640-702
+await esbuild.build({
+  entryPoints: [entryFile],
+  absWorkingDir: extPath,
+  bundle: true,
+  format: 'cjs',
+  platform: 'node',
+  outfile: outFile,
+  external: [
+    // React — provided by the renderer at runtime
+    'react',
+    'react-dom',
+    'react/jsx-runtime',
+    // Raycast — provided by our shim
+    '@raycast/api',
+    '@raycast/utils',
+    // Node.js built-ins — stubbed at runtime in the renderer
+    ...nodeBuiltins,
+  ],
+  target: 'es2020',
+  jsx: 'automatic',
+  jsxImportSource: 'react',
+});
+```
+
+## API Compatibility Layer
+
+The `src/renderer/src/raycast-api/` directory provides a comprehensive compatibility shim:
+
+<CardGroup cols={2}>
+  <Card title="Core Components" icon="cube">
+    Full implementations of `List`, `Detail`, `Form`, `Grid`, `ActionPanel`, and `MenuBarExtra` components
+  </Card>
+  
+  <Card title="Hooks & Utilities" icon="code">
+    Complete support for `useNavigation`, `useFetch`, `useCachedPromise`, `usePromise`, and all other Raycast hooks
+  </Card>
+  
+  <Card title="System Integration" icon="desktop">
+    Bridges for clipboard, localStorage, file system, AI, and other system operations via Electron IPC
+  </Card>
+  
+  <Card title="Platform Features" icon="window">
+    Window management, AppleScript execution, application detection, and native macOS integration
+  </Card>
+</CardGroup>
+
+## Extension Context
+
+Each extension runs with full access to the Raycast environment API:
+
+```typescript
+// Available via environment object in extensions
+interface ExtensionContext {
+  extensionName: string;          // e.g., "github"
+  extensionDisplayName: string;   // e.g., "GitHub"
+  commandName: string;            // e.g., "search-repositories"
+  assetsPath: string;             // Path to extension assets/
+  supportPath: string;            // Path for extension data storage
+  extensionPath: string;          // Full extension directory path
+  preferences: Record<string, any>; // Extension + command preferences
+}
+```
+
+## Dependency Management
+
+SuperCmd intelligently handles extension dependencies:
+
+```typescript
+// From extension-registry.ts:822-892
+export async function installExtensionDeps(extPath: string): Promise<void> {
+  // Filter out @raycast/* packages (we provide shims)
+  const thirdPartyDeps = Object.entries(deps)
+    .filter(([name]) => !name.startsWith('@raycast/'))
+    .map(([name, version]) => `${name}@${version}`);
+
+  // Install only third-party deps explicitly
+  await runNpmCommand(
+    extPath,
+    `install --no-save --legacy-peer-deps ${quotedThirdPartyDeps}`,
+    300_000
+  );
+}
+```
+
+<Warning>
+  Extensions share the React instance with SuperCmd to ensure proper React context and hooks work correctly. Never bundle React into extensions.
+</Warning>
+
+## Platform Compatibility
+
+Extensions can declare platform support in their `package.json`:
+
+```json
+{
+  "platforms": ["macOS", "Windows", "Linux"]
+}
+```
+
+SuperCmd filters extensions and commands based on the current platform:
+
+```typescript
+// From extension-platform.ts:38-42
+export function isManifestPlatformCompatible(manifest: any): boolean {
+  const supported = getManifestPlatforms(manifest);
+  if (supported.length === 0) return true; // No restriction
+  return supported.includes(getCurrentRaycastPlatform());
+}
+```
+
+## Performance Optimizations
+
+<CardGroup cols={2}>
+  <Card title="Pre-built Bundles" icon="bolt">
+    All commands are built at install time, not runtime, for instant execution
+  </Card>
+  
+  <Card title="Sparse Checkout" icon="git-branch">
+    Only downloads necessary files from the extension repository
+  </Card>
+  
+  <Card title="Cached Catalog" icon="database">
+    Extension catalog is cached locally for 24 hours
+  </Card>
+  
+  <Card title="Lazy Screenshots" icon="image">
+    Extension screenshots are fetched on-demand, not during catalog sync
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installing Extensions" icon="download" href="/extensions/installing">
+    Learn how to install and update extensions
+  </Card>
+  
+  <Card title="Managing Extensions" icon="sliders" href="/extensions/managing">
+    Manage installed extensions and preferences
+  </Card>
+  
+  <Card title="Compatibility" icon="check-circle" href="/extensions/compatibility">
+    Check API compatibility status
+  </Card>
+</CardGroup>

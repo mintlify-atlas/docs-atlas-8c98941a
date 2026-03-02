@@ -1,0 +1,267 @@
+---
+title: Settings
+description: Configure SuperCmd's appearance, behavior, and integrations
+---
+
+## Overview
+
+SuperCmd stores all settings in a JSON file at:
+
+```
+~/Library/Application Support/SuperCmd/settings.json
+```
+
+You can configure SuperCmd through the **Settings** window (search for "Settings" in the launcher) or by editing the settings file directly.
+
+## General Settings
+
+### Global Shortcut
+
+<ParamField path="globalShortcut" type="string" default="Alt+Space">
+  The keyboard shortcut to open SuperCmd from anywhere in macOS.
+</ParamField>
+
+Popular alternatives:
+- `Command+Space` (requires disabling Spotlight)
+- `Option+Space` (Alt+Space)
+- `Control+Space`
+- `Command+Shift+Space`
+
+### Launch at Login
+
+<ParamField path="openAtLogin" type="boolean" default="false">
+  Automatically start SuperCmd when you log in to macOS.
+</ParamField>
+
+### Font Size
+
+<ParamField path="fontSize" type="string" default="medium">
+  Choose from: `extra-small`, `small`, `medium`, `large`, `extra-large`
+</ParamField>
+
+### UI Style
+
+<ParamField path="uiStyle" type="string" default="default">
+  Choose between `default` or `glassy` (translucent window with blur effect)
+</ParamField>
+
+### Base Color
+
+<ParamField path="baseColor" type="string" default="">
+  Customize the accent color for the UI (hex color code)
+</ParamField>
+
+## Commands & Extensions
+
+### Disabled Commands
+
+<ParamField path="disabledCommands" type="string[]" default="[]">
+  Array of command IDs to hide from the launcher
+</ParamField>
+
+### Enabled Commands
+
+<ParamField path="enabledCommands" type="string[]" default="[]">
+  Whitelist of command IDs (if set, only these commands are shown)
+</ParamField>
+
+### Custom Extension Folders
+
+<ParamField path="customExtensionFolders" type="string[]" default="[]">
+  Additional directories to scan for extensions
+</ParamField>
+
+```json
+{
+  "customExtensionFolders": [
+    "/Users/yourname/my-extensions",
+    "/Users/yourname/raycast-extensions"
+  ]
+}
+```
+
+### Command Hotkeys
+
+<ParamField path="commandHotkeys" type="Record<string, string>" default="{}">
+  Map command IDs to global keyboard shortcuts
+</ParamField>
+
+```json
+{
+  "commandHotkeys": {
+    "clipboard-history": "Command+Shift+V",
+    "window-management": "Control+Option+W"
+  }
+}
+```
+
+### Command Aliases
+
+<ParamField path="commandAliases" type="Record<string, string>" default="{}">
+  Custom search terms for commands
+</ParamField>
+
+```json
+{
+  "commandAliases": {
+    "com.extension.command-id": "shortcut alias"
+  }
+}
+```
+
+### Pinned & Recent Commands
+
+<ParamField path="pinnedCommands" type="string[]" default="[]">
+  Command IDs that always appear at the top of the launcher
+</ParamField>
+
+<ParamField path="recentCommands" type="string[]" default="[]">
+  Recently used commands (auto-managed)
+</ParamField>
+
+<ParamField path="recentCommandLaunchCounts" type="Record<string, number>" default="{}">
+  Launch count for frecency sorting (auto-managed)
+</ParamField>
+
+## AI Settings
+
+See [AI Providers](/configuration/ai-providers) for detailed AI configuration.
+
+<ParamField path="ai.enabled" type="boolean" default="true">
+  Master switch for all AI features
+</ParamField>
+
+<ParamField path="ai.llmEnabled" type="boolean" default="true">
+  Enable AI chat and inline prompts
+</ParamField>
+
+<ParamField path="ai.whisperEnabled" type="boolean" default="true">
+  Enable voice input (speech-to-text)
+</ParamField>
+
+<ParamField path="ai.readEnabled" type="boolean" default="true">
+  Enable text-to-speech (read aloud)
+</ParamField>
+
+<ParamField path="ai.provider" type="string" default="openai">
+  Default AI provider: `openai`, `anthropic`, `gemini`, `ollama`, `openai-compatible`
+</ParamField>
+
+## Hyper Key
+
+SuperCmd includes a built-in Hyper Key feature that remaps a modifier key to act as Cmd+Ctrl+Option+Shift.
+
+<ParamField path="hyperKeySource" type="number | null" default="null">
+  Keycode of the source key to remap (e.g., Caps Lock = 57, Right Option = 61)
+</ParamField>
+
+<ParamField path="hyperKeyIncludeShift" type="boolean" default="false">
+  Include Shift in the Hyper Key combination
+</ParamField>
+
+<ParamField path="hyperKeyQuickPressAction" type="string" default="toggle-caps-lock">
+  Action when Hyper Key is pressed and released quickly: `toggle-caps-lock`, `escape`, `none`
+</ParamField>
+
+<ParamField path="hyperReplaceModifierGlyphsWithHyper" type="boolean" default="false">
+  Show "⌘⌥⌃⇧" as "⌘Hyper" in shortcut badges
+</ParamField>
+
+## File Search
+
+<ParamField path="fileSearchProtectedRootsEnabled" type="boolean" default="false">
+  Allow file search in protected system directories
+</ParamField>
+
+<Warning>
+Enabling file search in protected directories may expose sensitive system files.
+</Warning>
+
+## Debug Mode
+
+<ParamField path="debugMode" type="boolean" default="false">
+  Enable verbose logging in the console
+</ParamField>
+
+Open DevTools with `Cmd+Option+I` when debug mode is enabled.
+
+## Onboarding
+
+<ParamField path="hasSeenOnboarding" type="boolean" default="false">
+  Whether the user has completed the initial onboarding
+</ParamField>
+
+<ParamField path="hasSeenWhisperOnboarding" type="boolean" default="false">
+  Whether the user has completed the Whisper voice input onboarding
+</ParamField>
+
+## Auto-Updates
+
+<ParamField path="appUpdaterLastCheckedAt" type="number" default="0">
+  Timestamp of the last update check (milliseconds since epoch)
+</ParamField>
+
+SuperCmd automatically checks for updates using `electron-updater`. You can manually check for updates by searching for "Check for Updates" in the launcher.
+
+## Command Metadata
+
+<ParamField path="commandMetadata" type="Record<string, { subtitle?: string }>" default="{}">
+  Custom subtitles for commands (set via `updateCommandMetadata()` API)
+</ParamField>
+
+```json
+{
+  "commandMetadata": {
+    "com.example.command": {
+      "subtitle": "Custom subtitle text"
+    }
+  }
+}
+```
+
+## Settings File Location
+
+You can manually edit the settings file while SuperCmd is closed:
+
+```bash
+open ~/Library/Application\ Support/SuperCmd/settings.json
+```
+
+<Warning>
+Always close SuperCmd before manually editing settings.json to avoid data loss.
+</Warning>
+
+## Resetting Settings
+
+To reset all settings to defaults:
+
+<Steps>
+  <Step title="Quit SuperCmd">
+    Right-click the menu bar icon and select **Quit**
+  </Step>
+  <Step title="Delete settings file">
+    ```bash
+    rm ~/Library/Application\ Support/SuperCmd/settings.json
+    ```
+  </Step>
+  <Step title="Restart SuperCmd">
+    Launch SuperCmd from Applications folder
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Permissions" icon="shield" href="/configuration/permissions">
+    Configure macOS permissions
+  </Card>
+  <Card title="AI Providers" icon="brain" href="/configuration/ai-providers">
+    Set up AI integrations
+  </Card>
+  <Card title="Hotkeys" icon="keyboard" href="/configuration/hotkeys">
+    Customize keyboard shortcuts
+  </Card>
+  <Card title="Extensions" icon="puzzle-piece" href="/extensions/overview">
+    Install and manage extensions
+  </Card>
+</CardGroup>

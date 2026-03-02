@@ -1,0 +1,305 @@
+---
+title: Installing Extensions
+description: Install and update Raycast extensions in SuperCmd
+---
+
+SuperCmd makes it easy to install community extensions from the Raycast extension registry.
+
+## Installation Process
+
+When you install an extension, SuperCmd performs several steps automatically:
+
+<Steps>
+  <Step title="Fetch Extension">
+    SuperCmd uses Git sparse-checkout to download only the specific extension directory from the [Raycast Extensions repository](https://github.com/raycast/extensions).
+    
+    ```typescript
+    // From extension-registry.ts:943-954
+    await runGitCommand(
+      app.getPath('temp'),
+      `clone --depth 1 --filter=blob:none --sparse "${REPO_URL}" "${tmpDir}"`,
+      60_000
+    );
+
+    await runGitCommand(
+      tmpDir,
+      `sparse-checkout set "extensions/${name}"`,
+      60_000
+    );
+    ```
+  </Step>
+  
+  <Step title="Validate Platform Compatibility">
+    SuperCmd checks if the extension supports your platform (macOS, Windows, or Linux).
+    
+    ```typescript
+    // From extension-registry.ts:972-979
+    if (!isManifestPlatformCompatible(srcPkg)) {
+      const supported = getManifestPlatforms(srcPkg);
+      console.error(
+        `Extension "${name}" is not compatible with ${getCurrentRaycastPlatform()}`
+      );
+      return false;
+    }
+    ```
+  </Step>
+  
+  <Step title="Copy to Extensions Directory">
+    The extension is copied to `~/Library/Application Support/SuperCmd/extensions/` (or the equivalent on Windows/Linux).
+  </Step>
+  
+  <Step title="Install Dependencies">
+    SuperCmd installs npm dependencies, excluding `@raycast/api` packages which are provided by the compatibility shim.
+    
+    ```typescript
+    // From extension-registry.ts:840-843
+    const thirdPartyDeps = Object.entries(deps)
+      .filter(([name]) => !name.startsWith('@raycast/'))
+      .map(([name, version]) => `${name}@${version}`);
+    ```
+  </Step>
+  
+  <Step title="Pre-build Commands">
+    All extension commands are bundled using esbuild for instant execution.
+    
+    ```typescript
+    // From extension-registry.ts:993-996
+    const { buildAllCommands } = require('./extension-runner');
+    const builtCount = await buildAllCommands(name);
+    console.log(`Extension "${name}" installed and pre-built (${builtCount} commands)`);
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  Pre-building commands at install time ensures extensions launch instantly when you run them.
+</Note>
+
+## Where Extensions Are Stored
+
+Extensions are installed in platform-specific locations:
+
+- **macOS**: `~/Library/Application Support/SuperCmd/extensions/`
+- **Windows**: `%APPDATA%/SuperCmd/extensions/`
+- **Linux**: `~/.config/SuperCmd/extensions/`
+
+Each extension has its own directory containing:
+
+```
+my-extension/
+├── .sc-build/           # Pre-built command bundles
+│   ├── command1.js
+│   └── command2.js
+├── assets/              # Extension icons and media
+├── node_modules/        # Third-party dependencies
+├── src/                 # Extension source code
+└── package.json         # Extension manifest
+```
+
+## Dependency Installation
+
+SuperCmd handles npm dependencies intelligently:
+
+### Third-Party Dependencies
+
+Normal npm packages are installed as usual:
+
+```typescript
+// From extension-registry.ts:857-864
+await runNpmCommand(
+  extPath,
+  `install --no-save --legacy-peer-deps ${quotedThirdPartyDeps}`,
+  300_000
+);
+```
+
+### Raycast API Packages
+
+Packages starting with `@raycast/` are **not** installed because SuperCmd provides them via the compatibility shim:
+
+<CardGroup cols={2}>
+  <Card title="@raycast/api" icon="code">
+    Provided by `src/renderer/src/raycast-api/index.tsx`
+  </Card>
+  
+  <Card title="@raycast/utils" icon="wrench">
+    Hooks and utilities implemented in `src/renderer/src/raycast-api/hooks/`
+  </Card>
+</CardGroup>
+
+### Fallback Strategy
+
+If explicit dependency installation fails, SuperCmd falls back to a full npm install:
+
+```typescript
+// From extension-registry.ts:874-885
+catch (e1: any) {
+  // Fall back to full npm install
+  await runNpmCommand(
+    extPath,
+    'install --production --legacy-peer-deps',
+    300_000
+  );
+}
+```
+
+## Git Setup Requirements
+
+SuperCmd requires Git to install extensions. If Git is not found, SuperCmd will:
+
+<Steps>
+  <Step title="Detect Git Availability">
+    Check common Git installation paths (Homebrew, system, etc.)
+  </Step>
+  
+  <Step title="Attempt Auto-Install (macOS)">
+    On macOS, SuperCmd can automatically install Git via Homebrew if available:
+    
+    ```typescript
+    // From extension-registry.ts:198-208
+    await execAsync(
+      `"${brewExecutable}" list --versions git || "${brewExecutable}" install git`,
+      { timeout: 15 * 60_000 }
+    );
+    ```
+  </Step>
+  
+  <Step title="Show Setup Dialog">
+    If auto-install fails or Homebrew is not available, show installation instructions
+  </Step>
+</Steps>
+
+<Warning>
+  On macOS, you may be prompted to install Xcode Command Line Tools if Git is not already installed.
+</Warning>
+
+## Network Fallback
+
+If Git is not available, SuperCmd can fall back to HTTP-based installation:
+
+```typescript
+// From extension-registry.ts:539-576
+async function downloadExtensionFromTree(name: string, tmpDir: string): Promise<string | null> {
+  const treeEntries = await fetchRepoTreeEntries();
+  const prefix = `extensions/${name}/`;
+  const fileEntries = treeEntries.filter(
+    (entry) => entry.type === 'blob' && entry.path.startsWith(prefix)
+  );
+
+  for (const entry of fileEntries) {
+    const fileUrl = `${GITHUB_RAW}/${entry.path}`;
+    const response = await fetchWithTimeout(fileUrl);
+    const data = await response.arrayBuffer();
+    fs.writeFileSync(destination, Buffer.from(data));
+  }
+
+  return srcDir;
+}
+```
+
+## Update Strategy
+
+When updating an extension, SuperCmd:
+
+1. **Backs up existing installation** to a timestamped directory
+2. **Downloads new version** using the same installation process
+3. **Removes backup** if update succeeds
+4. **Rolls back** if update fails
+
+```typescript
+// From extension-registry.ts:928-931, 981-984, 997-1010
+const hadExistingInstall = fs.existsSync(installPath);
+const backupPath = hadExistingInstall
+  ? path.join(getExtensionsDir(), `${name}.backup-${Date.now()}`)
+  : '';
+
+if (hadExistingInstall) {
+  fs.renameSync(installPath, backupPath);
+}
+
+// ... install new version ...
+
+if (backupPath && fs.existsSync(backupPath)) {
+  fs.rmSync(backupPath, { recursive: true, force: true });
+}
+```
+
+<Note>
+  If an extension update fails, SuperCmd automatically restores the previous version from backup.
+</Note>
+
+## Command Pre-building
+
+All commands are built at install time using esbuild:
+
+```typescript
+// From extension-runner.ts:623-710
+for (const cmd of commands) {
+  const entryFile = resolveEntryFile(extPath, cmd);
+  const outFile = path.join(buildDir, `${cmd.name}.js`);
+
+  await esbuild.build({
+    entryPoints: [entryFile],
+    bundle: true,
+    format: 'cjs',
+    platform: 'node',
+    external: [
+      'react',
+      'react-dom',
+      '@raycast/api',
+      '@raycast/utils',
+      ...nodeBuiltins,
+    ],
+    jsx: 'automatic',
+    jsxImportSource: 'react',
+  });
+}
+```
+
+### Entry File Resolution
+
+SuperCmd tries multiple paths to find command entry files:
+
+```typescript
+// From extension-runner.ts:508-522
+const candidates = [
+  explicitEntry ? path.join(extPath, explicitEntry) : '',
+  path.join(srcDir, `${cmdName}.tsx`),
+  path.join(srcDir, `${cmdName}.ts`),
+  path.join(srcDir, cmdName, 'index.tsx'),
+  path.join(srcDir, 'commands', `${cmdName}.tsx`),
+  // ... more patterns
+];
+```
+
+## Installation Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Git not found">
+    Install Git via Homebrew (`brew install git`) or download from [git-scm.com](https://git-scm.com/)
+  </Accordion>
+  
+  <Accordion title="npm not found">
+    SuperCmd searches for npm in common locations (nvm, volta, fnm, Homebrew). Install Node.js from [nodejs.org](https://nodejs.org/)
+  </Accordion>
+  
+  <Accordion title="Build failed">
+    Check that the extension's dependencies installed correctly. Try reinstalling the extension.
+  </Accordion>
+  
+  <Accordion title="Platform incompatible">
+    The extension doesn't support your operating system. Check the extension's documentation for platform requirements.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Managing Extensions" icon="sliders" href="/extensions/managing">
+    Learn how to manage and configure installed extensions
+  </Card>
+  
+  <Card title="Compatibility" icon="check-circle" href="/extensions/compatibility">
+    Check which Raycast APIs are supported
+  </Card>
+</CardGroup>

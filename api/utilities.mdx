@@ -1,0 +1,608 @@
+---
+title: 'Utilities'
+description: 'Utility functions and objects for common operations'
+icon: 'toolbox'
+---
+
+SuperCmd provides utility functions and objects from `@raycast/utils` for common operations like clipboard access, storage, caching, and more.
+
+## Storage & Data
+
+### LocalStorage
+
+<Card title="LocalStorage" icon="hard-drive" href="#localstorage">
+  Persistent key-value storage scoped to your extension
+</Card>
+
+Persistent storage scoped to your extension.
+
+**API:**
+```tsx
+namespace LocalStorage {
+  function getItem(key: string): Promise<Value | undefined>;
+  function setItem(key: string, value: Value): Promise<void>;
+  function removeItem(key: string): Promise<void>;
+  function allItems(): Promise<Values>;
+  function clear(): Promise<void>;
+  
+  type Value = string | number | boolean;
+  type Values = Record<string, Value>;
+}
+```
+
+**Example:**
+```tsx
+import { LocalStorage } from '@raycast/api';
+
+// Save data
+await LocalStorage.setItem('lastQuery', 'hello world');
+await LocalStorage.setItem('count', 42);
+
+// Read data
+const query = await LocalStorage.getItem('lastQuery');
+const count = await LocalStorage.getItem('count');
+
+// Get all items
+const allItems = await LocalStorage.allItems();
+console.log(allItems); // { lastQuery: 'hello world', count: 42 }
+
+// Remove item
+await LocalStorage.removeItem('count');
+
+// Clear all
+await LocalStorage.clear();
+```
+
+<Info>
+LocalStorage is automatically scoped to your extension. Each extension has its own isolated storage namespace.
+</Info>
+
+---
+
+### Cache
+
+<Card title="Cache" icon="box" href="#cache">
+  In-memory cache with LRU eviction and capacity limits
+</Card>
+
+In-memory cache with LRU (Least Recently Used) eviction.
+
+**Constructor:**
+```tsx
+class Cache {
+  constructor(options?: {
+    capacity?: number; // bytes, default 10MB
+    namespace?: string;
+  });
+  
+  get(key: string): string | undefined;
+  set(key: string, data: string): void;
+  remove(key: string): boolean;
+  has(key: string): boolean;
+  clear(options?: { notifySubscribers?: boolean }): void;
+  subscribe(subscriber: (key: string | undefined, data: string | undefined) => void): () => void;
+  
+  get isEmpty(): boolean;
+}
+```
+
+**Example:**
+```tsx
+import { Cache } from '@raycast/api';
+
+const cache = new Cache({ 
+  capacity: 5 * 1024 * 1024, // 5MB
+  namespace: 'my-cache' 
+});
+
+// Store data
+cache.set('user-data', JSON.stringify({ name: 'John' }));
+
+// Retrieve data
+const data = cache.get('user-data');
+if (data) {
+  const user = JSON.parse(data);
+}
+
+// Subscribe to changes
+const unsubscribe = cache.subscribe((key, data) => {
+  console.log(`Cache updated: ${key}`);
+});
+
+// Clean up
+unsubscribe();
+```
+
+---
+
+### Clipboard
+
+<Card title="Clipboard" icon="clipboard" href="#clipboard">
+  Read and write clipboard content
+</Card>
+
+Read and write clipboard content, including text, HTML, and files.
+
+**API:**
+```tsx
+namespace Clipboard {
+  function copy(
+    content: string | number | { text?: string; html?: string; file?: string },
+    options?: { concealed?: boolean }
+  ): Promise<void>;
+  
+  function paste(
+    content: string | { text?: string; html?: string; file?: string }
+  ): Promise<void>;
+  
+  function readText(options?: { offset?: number }): Promise<string | undefined>;
+  
+  function read(options?: { offset?: number }): Promise<{
+    text?: string;
+    html?: string;
+    file?: string;
+  }>;
+  
+  function clear(): Promise<void>;
+}
+```
+
+**Examples:**
+```tsx
+import { Clipboard, showToast, Toast } from '@raycast/api';
+
+// Copy text
+await Clipboard.copy('Hello World');
+
+// Copy without showing toast
+await Clipboard.copy('Secret data', { concealed: true });
+
+// Copy HTML
+await Clipboard.copy({
+  text: 'Visit Example',
+  html: '<a href="https://example.com">Visit Example</a>',
+});
+
+// Copy file
+await Clipboard.copy({ file: '/path/to/image.png' });
+
+// Paste into active app
+await Clipboard.paste('Text to paste');
+
+// Read current clipboard
+const text = await Clipboard.readText();
+
+// Read from clipboard history
+const previousClip = await Clipboard.readText({ offset: 1 });
+```
+
+---
+
+## Icon & Avatar Utilities
+
+### getFavicon
+
+<Card title="getFavicon" icon="globe" href="#getfavicon">
+  Get favicon URL for a website
+</Card>
+
+Get a favicon URL for a given website.
+
+**Type Signature:**
+```tsx
+function getFavicon(
+  url: string | { url: string },
+  options?: {
+    fallback?: string;
+    size?: number;
+    mask?: string;
+  }
+): string;
+```
+
+**Example:**
+```tsx
+import { getFavicon } from '@raycast/utils';
+import { List } from '@raycast/api';
+
+function MyCommand() {
+  return (
+    <List>
+      <List.Item 
+        title="Example.com"
+        icon={getFavicon('https://example.com', { size: 64 })}
+      />
+    </List>
+  );
+}
+```
+
+---
+
+### getAvatarIcon
+
+<Card title="getAvatarIcon" icon="user" href="#getavataricon">
+  Generate SVG avatar from name initials
+</Card>
+
+Generate an avatar icon from a name.
+
+**Type Signature:**
+```tsx
+function getAvatarIcon(
+  name: string,
+  options?: {
+    background?: string;
+    gradient?: boolean;
+  }
+): string; // Returns data URI
+```
+
+**Example:**
+```tsx
+import { getAvatarIcon } from '@raycast/utils';
+import { List } from '@raycast/api';
+
+function MyCommand() {
+  const users = [
+    { id: 1, name: 'John Doe' },
+    { id: 2, name: 'Jane Smith' },
+  ];
+  
+  return (
+    <List>
+      {users.map(user => (
+        <List.Item 
+          key={user.id}
+          title={user.name}
+          icon={getAvatarIcon(user.name)}
+        />
+      ))}
+    </List>
+  );
+}
+```
+
+<Info>
+Avatar colors are deterministically generated from the name, so the same name always gets the same color.
+</Info>
+
+---
+
+### getProgressIcon
+
+<Card title="getProgressIcon" icon="spinner" href="#getprogressicon">
+  Generate SVG circular progress indicator
+</Card>
+
+Generate a circular progress indicator icon.
+
+**Type Signature:**
+```tsx
+function getProgressIcon(
+  progress: number, // 0-1
+  color?: string,
+  options?: {
+    background?: string;
+    backgroundOpacity?: number;
+  }
+): string; // Returns data URI
+```
+
+**Example:**
+```tsx
+import { getProgressIcon } from '@raycast/utils';
+import { List } from '@raycast/api';
+
+function MyCommand() {
+  const tasks = [
+    { id: 1, name: 'Task 1', progress: 0.25 },
+    { id: 2, name: 'Task 2', progress: 0.75 },
+  ];
+  
+  return (
+    <List>
+      {tasks.map(task => (
+        <List.Item 
+          key={task.id}
+          title={task.name}
+          icon={getProgressIcon(task.progress, '#FF6B6B')}
+        />
+      ))}
+    </List>
+  );
+}
+```
+
+---
+
+## AppleScript & Shell
+
+### runAppleScript
+
+<Card title="runAppleScript" icon="apple" href="#runapplescript">
+  Execute AppleScript commands
+</Card>
+
+Execute AppleScript commands and get the result.
+
+**Type Signature:**
+```tsx
+function runAppleScript(
+  script: string,
+  options?: any
+): Promise<string>;
+```
+
+**Example:**
+```tsx
+import { runAppleScript, showToast, Toast } from '@raycast/utils';
+
+const script = `
+  tell application "Music"
+    if player state is playing then
+      return name of current track
+    else
+      return "Not playing"
+    end if
+  end tell
+`;
+
+try {
+  const result = await runAppleScript(script);
+  await showToast(Toast.Style.Success, 'Now Playing', result);
+} catch (error) {
+  await showToast(Toast.Style.Failure, 'Failed to get track info');
+}
+```
+
+---
+
+### executeSQL
+
+<Card title="executeSQL" icon="database" href="#executesql">
+  Execute SQLite queries
+</Card>
+
+Execute SQLite queries directly (non-hook version).
+
+**Type Signature:**
+```tsx
+function executeSQL<T = any>(
+  databasePath: string,
+  query: string
+): Promise<T[]>;
+```
+
+**Example:**
+```tsx
+import { executeSQL } from '@raycast/utils';
+
+const results = await executeSQL<{ name: string; email: string }>(
+  '/path/to/database.db',
+  'SELECT name, email FROM users WHERE active = 1'
+);
+
+console.log(results);
+```
+
+---
+
+## Caching & Performance
+
+### withCache
+
+<Card title="withCache" icon="bolt" href="#withcache">
+  Wrap async functions with automatic caching
+</Card>
+
+Cache async function results with TTL and validation.
+
+**Type Signature:**
+```tsx
+function withCache<T>(
+  fn: (...args: any[]) => Promise<T>,
+  options?: {
+    maxAge?: number; // milliseconds
+    validate?: (data: T) => boolean;
+    namespace?: string;
+  }
+): (...args: any[]) => Promise<T>;
+```
+
+**Example:**
+```tsx
+import { withCache } from '@raycast/utils';
+
+const fetchUserData = withCache(
+  async (userId: string) => {
+    const response = await fetch(`https://api.example.com/users/${userId}`);
+    return response.json();
+  },
+  {
+    maxAge: 5 * 60 * 1000, // 5 minutes
+    validate: (data) => data && data.id !== undefined,
+  }
+);
+
+// First call fetches from API
+const user1 = await fetchUserData('123');
+
+// Second call returns cached result (if within maxAge)
+const user2 = await fetchUserData('123');
+```
+
+---
+
+## Utilities
+
+### showFailureToast
+
+<Card title="showFailureToast" icon="circle-exclamation" href="#showfailuretoast">
+  Show error toast with consistent formatting
+</Card>
+
+Show a failure toast with consistent error formatting.
+
+**Type Signature:**
+```tsx
+function showFailureToast(
+  error: Error | string | unknown,
+  options?: {
+    title?: string;
+    message?: string;
+    primaryAction?: any;
+  }
+): Promise<void>;
+```
+
+**Example:**
+```tsx
+import { showFailureToast } from '@raycast/utils';
+
+try {
+  await riskyOperation();
+} catch (error) {
+  await showFailureToast(error, {
+    title: 'Operation Failed',
+  });
+}
+```
+
+---
+
+### createDeeplink
+
+<Card title="createDeeplink" icon="link" href="#createdeeplink">
+  Create deeplinks to extensions and commands
+</Card>
+
+Create deeplink URIs for launching extensions or script commands.
+
+**Type Signature:**
+```tsx
+function createDeeplink(options: {
+  type: DeeplinkType; // 'extension' | 'scriptCommand'
+  extensionName?: string;
+  ownerOrAuthorName?: string;
+  commandName?: string;
+  context?: Record<string, any>;
+}): string;
+
+enum DeeplinkType {
+  Extension = 'extension',
+  ScriptCommand = 'scriptCommand',
+}
+```
+
+**Example:**
+```tsx
+import { createDeeplink, DeeplinkType } from '@raycast/utils';
+
+const deeplink = createDeeplink({
+  type: DeeplinkType.Extension,
+  extensionName: 'my-extension',
+  ownerOrAuthorName: 'username',
+  commandName: 'search',
+  context: { query: 'hello' },
+});
+
+console.log(deeplink);
+// raycast://extensions/username/my-extension/search?context=...
+```
+
+---
+
+## Environment
+
+<Card title="environment" icon="circle-info" href="#environment">
+  Access runtime environment information
+</Card>
+
+The `environment` object provides information about the runtime environment.
+
+**Properties:**
+```tsx
+const environment: {
+  extensionName: string;
+  commandName: string;
+  commandMode: 'view' | 'no-view' | 'menu-bar';
+  assetsPath: string;
+  supportPath: string;
+  raycastVersion: string;
+  ownerOrAuthorName: string;
+  launchType: LaunchType;
+  isDevelopment: boolean;
+  appearance: 'light' | 'dark';
+  textSize: 'medium' | 'large';
+  canAccess: (resource: any) => boolean;
+};
+```
+
+**Example:**
+```tsx
+import { environment } from '@raycast/api';
+
+console.log(`Running in: ${environment.extensionName}`);
+console.log(`Command: ${environment.commandName}`);
+console.log(`Theme: ${environment.appearance}`);
+
+if (environment.canAccess(AI)) {
+  // AI is available
+}
+```
+
+---
+
+## AI
+
+<Card title="AI" icon="wand-magic-sparkles" href="#ai">
+  Execute AI prompts programmatically
+</Card>
+
+The `AI` object provides programmatic access to AI functionality.
+
+**API:**
+```tsx
+namespace AI {
+  const Model: {
+    'OpenAI_GPT4o': string;
+    'OpenAI_GPT4o-mini': string;
+    'Anthropic_Claude_Sonnet': string;
+    // ... more models
+  };
+  
+  function ask(
+    prompt: string,
+    options?: {
+      model?: string;
+      creativity?: 'none' | 'low' | 'medium' | 'high' | 'maximum' | number;
+      signal?: AbortSignal;
+    }
+  ): Promise<string> & { on(event: 'data', callback: (chunk: string) => void): void };
+}
+```
+
+**Example:**
+```tsx
+import { AI } from '@raycast/api';
+
+// Simple request
+const response = await AI.ask('Explain React hooks in 3 sentences');
+
+// With streaming
+const stream = AI.ask('Write a haiku about coding', {
+  model: AI.Model['OpenAI_GPT4o'],
+  creativity: 'high',
+});
+
+stream.on('data', (chunk) => {
+  console.log('Received:', chunk);
+});
+
+const fullResponse = await stream;
+```
+
+<Info>
+AI availability can be checked with `environment.canAccess(AI)`. Users must configure AI providers in SuperCmd settings.
+</Info>

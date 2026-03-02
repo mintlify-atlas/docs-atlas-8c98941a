@@ -1,0 +1,408 @@
+---
+title: Managing Extensions
+description: Configure, enable, disable, and uninstall extensions in SuperCmd
+---
+
+SuperCmd provides tools to manage your installed extensions, configure preferences, and control which commands are available.
+
+## Extension Discovery
+
+SuperCmd discovers installed extensions from multiple sources:
+
+### Managed Extensions Directory
+
+The primary location for extensions installed through SuperCmd:
+
+```typescript
+// From extension-runner.ts:111-117
+function getManagedExtensionsDir(): string {
+  const dir = path.join(app.getPath('userData'), 'extensions');
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  return dir;
+}
+```
+
+- **macOS**: `~/Library/Application Support/SuperCmd/extensions/`
+- **Windows**: `%APPDATA%/SuperCmd/extensions/`
+- **Linux**: `~/.config/SuperCmd/extensions/`
+
+### Custom Extension Folders
+
+You can add custom extension directories via settings or environment variables:
+
+```typescript
+// From extension-runner.ts:144-160
+function getConfiguredExtensionRoots(): string[] {
+  const settingsPaths = loadSettings().customExtensionFolders;
+  const envPaths = process.env.SUPERCMD_EXTENSION_PATHS?.split(path.delimiter);
+
+  const unique = new Set<string>();
+  for (const root of [getManagedExtensionsDir(), ...settingsPaths, ...envPaths]) {
+    const normalized = normalizeFsPath(root);
+    if (normalized) unique.add(normalized);
+  }
+  return [...unique];
+}
+```
+
+<Note>
+  Set `SUPERCMD_EXTENSION_PATHS` environment variable to a colon-separated (macOS/Linux) or semicolon-separated (Windows) list of extension directories.
+</Note>
+
+## Extension Commands
+
+SuperCmd scans all extension directories and builds a catalog of available commands:
+
+```typescript
+// From extension-runner.ts:281-337
+export function discoverInstalledExtensionCommands(): ExtensionCommandInfo[] {
+  const results: ExtensionCommandInfo[] = [];
+  
+  for (const source of collectInstalledExtensions()) {
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+    
+    // Skip platform-incompatible extensions
+    if (!isManifestPlatformCompatible(pkg)) continue;
+    
+    for (const cmd of pkg.commands || []) {
+      // Skip platform-incompatible commands
+      if (!isCommandPlatformCompatible(cmd)) continue;
+      
+      results.push({
+        id: `ext-${extName}-${cmd.name}`,
+        title: cmd.title || cmd.name,
+        extensionTitle: pkg.title || extName,
+        extName,
+        cmdName: cmd.name,
+        description: cmd.description || '',
+        mode: cmd.mode || 'view',
+        keywords: [extName, pkg.title, cmd.name, cmd.title, cmd.description]
+          .filter(Boolean)
+          .map(s => s.toLowerCase()),
+        iconDataUrl,
+      });
+    }
+  }
+  
+  return results;
+}
+```
+
+## Extension Preferences
+
+Extensions can define preferences at two levels:
+
+### Extension-Level Preferences
+
+Shared across all commands in the extension:
+
+```json
+{
+  "preferences": [
+    {
+      "name": "apiToken",
+      "title": "API Token",
+      "description": "Your GitHub API token",
+      "type": "password",
+      "required": true
+    }
+  ]
+}
+```
+
+### Command-Level Preferences
+
+Specific to individual commands:
+
+```json
+{
+  "commands": [
+    {
+      "name": "search",
+      "preferences": [
+        {
+          "name": "defaultQuery",
+          "title": "Default Search Query",
+          "type": "textfield"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Preference Types
+
+SuperCmd supports all Raycast preference types:
+
+<CardGroup cols={2}>
+  <Card title="textfield" icon="input-text">
+    Single-line text input
+  </Card>
+  
+  <Card title="password" icon="lock">
+    Secure password field (hidden input)
+  </Card>
+  
+  <Card title="checkbox" icon="square-check">
+    Boolean toggle
+  </Card>
+  
+  <Card title="dropdown" icon="chevron-down">
+    Selection from predefined options
+  </Card>
+  
+  <Card title="file" icon="file">
+    File path picker
+  </Card>
+  
+  <Card title="directory" icon="folder">
+    Directory path picker
+  </Card>
+</CardGroup>
+
+### Reading Preferences
+
+Extensions access preferences via the runtime context:
+
+```typescript
+// From extension-runner.ts:761-851
+function parsePreferences(pkg: any, cmdName: string) {
+  const extensionPrefs: Record<string, any> = {};
+  const commandPrefs: Record<string, any> = {};
+
+  // Extension-level preferences
+  for (const pref of pkg.preferences || []) {
+    const resolvedDefault = resolvePlatformDefault(pref.default);
+    if (resolvedDefault !== undefined) {
+      extensionPrefs[pref.name] = resolvedDefault;
+    } else if (pref.type === 'checkbox') {
+      extensionPrefs[pref.name] = false;
+    } else if (pref.type === 'textfield' || pref.type === 'password') {
+      extensionPrefs[pref.name] = '';
+    }
+  }
+
+  // Command-level preferences
+  const cmd = (pkg.commands || []).find((c: any) => c.name === cmdName);
+  if (cmd?.preferences) {
+    for (const pref of cmd.preferences) {
+      // Same logic as extension prefs
+    }
+  }
+
+  return { extensionPrefs, commandPrefs, definitions };
+}
+```
+
+### Platform-Specific Defaults
+
+Preferences can have different default values per platform:
+
+```json
+{
+  "name": "terminal",
+  "default": {
+    "macOS": "/Applications/iTerm.app",
+    "Windows": "C:\\Windows\\System32\\cmd.exe",
+    "Linux": "/usr/bin/gnome-terminal"
+  }
+}
+```
+
+```typescript
+// From extension-runner.ts:242-257
+function resolvePlatformDefault(value: any): any {
+  const platformKey = process.platform === 'win32' ? 'Windows' : 'macOS';
+  if (
+    value &&
+    typeof value === 'object' &&
+    (value.macOS || value.Windows)
+  ) {
+    return value[platformKey] ?? value.macOS ?? value.Windows;
+  }
+  return value;
+}
+```
+
+## Extension Metadata
+
+SuperCmd extracts metadata from extension manifests:
+
+```typescript
+// From extension-runner.ts:343-394
+export function getInstalledExtensionsSettingsSchema() {
+  const results: InstalledExtensionSettingsSchema[] = [];
+  
+  for (const source of collectInstalledExtensions()) {
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+    const iconDataUrl = getExtensionIconDataUrl(extPath, pkg.icon || 'icon.png');
+    const owner = typeof pkg.owner === 'object' ? pkg.owner.name : pkg.owner;
+
+    results.push({
+      extName,
+      title: pkg.title || extName,
+      description: pkg.description || '',
+      owner,
+      iconDataUrl,
+      preferences: extensionPreferences,
+      commands: commandSchemas,
+    });
+  }
+  
+  return results.sort((a, b) => a.title.localeCompare(b.title));
+}
+```
+
+## Extension Icons
+
+Icons are converted to data URLs for efficient rendering:
+
+```typescript
+// From extension-runner.ts:215-240
+function getExtensionIconDataUrl(
+  extPath: string,
+  iconFile: string
+): string | undefined {
+  const candidates = [
+    path.join(extPath, 'assets', iconFile),
+    path.join(extPath, iconFile),
+  ];
+
+  for (const p of candidates) {
+    if (!fs.existsSync(p)) continue;
+    const ext = path.extname(p).toLowerCase();
+    const data = fs.readFileSync(p);
+    const mime =
+      ext === '.svg'
+        ? 'image/svg+xml'
+        : ext === '.jpg' || ext === '.jpeg'
+          ? 'image/jpeg'
+          : 'image/png';
+    return `data:${mime};base64,${data.toString('base64')}`;
+  }
+}
+```
+
+## Uninstalling Extensions
+
+Removing an extension is straightforward:
+
+```typescript
+// From extension-registry.ts:1029-1044
+export async function uninstallExtension(name: string): Promise<boolean> {
+  const installPath = getInstalledPath(name);
+
+  if (!fs.existsSync(installPath)) {
+    return true; // Already gone
+  }
+
+  try {
+    fs.rmSync(installPath, { recursive: true, force: true });
+    console.log(`Extension "${name}" uninstalled.`);
+    return true;
+  } catch (error) {
+    console.error(`Failed to uninstall extension "${name}":`, error);
+    return false;
+  }
+}
+```
+
+<Warning>
+  Uninstalling an extension removes all its files, including any stored data. This action cannot be undone.
+</Warning>
+
+## Extension Support Directory
+
+Each extension has a dedicated support directory for storing data:
+
+```typescript
+// From extension-runner.ts:1104-1110
+const supportPath = path.join(
+  app.getPath('userData'),
+  'extension-support',
+  normalizedExtName
+);
+
+if (!fs.existsSync(supportPath)) {
+  fs.mkdirSync(supportPath, { recursive: true });
+}
+```
+
+- **macOS**: `~/Library/Application Support/SuperCmd/extension-support/{extension-name}/`
+- **Windows**: `%APPDATA%/SuperCmd/extension-support/{extension-name}/`
+- **Linux**: `~/.config/SuperCmd/extension-support/{extension-name}/`
+
+<Note>
+  Extensions use this directory through the `environment.supportPath` API to store configuration files, databases, and other persistent data.
+</Note>
+
+## Command Arguments
+
+Commands can define arguments that users provide before execution:
+
+```typescript
+// From extension-runner.ts:309-320
+commandArgumentDefinitions: Array.isArray(cmd.arguments)
+  ? cmd.arguments
+      .filter((arg: any) => arg && arg.name)
+      .map((arg: any) => ({
+        name: String(arg.name),
+        required: Boolean(arg.required),
+        type: arg.type,
+        placeholder: arg.placeholder,
+        title: arg.title,
+        data: Array.isArray(arg.data) ? arg.data : undefined,
+      }))
+  : [],
+```
+
+## Background Commands
+
+Some commands run in the background on an interval:
+
+```typescript
+// From extension-runner.ts:306-308
+mode: cmd.mode || 'view',
+interval: typeof cmd.interval === 'string' ? cmd.interval : undefined,
+disabledByDefault: Boolean(cmd.disabledByDefault),
+```
+
+Commands with `mode: "menu-bar"` and an `interval` property run periodically and update the menu bar.
+
+## Checking Installation Status
+
+```typescript
+// From extension-registry.ts:896-901
+export function isExtensionInstalled(name: string): boolean {
+  const p = getInstalledPath(name);
+  return (
+    fs.existsSync(p) && fs.existsSync(path.join(p, 'package.json'))
+  );
+}
+
+// From extension-registry.ts:903-915
+export function getInstalledExtensionNames(): string[] {
+  return fs.readdirSync(getExtensionsDir()).filter((d) => {
+    const p = getInstalledPath(d);
+    return (
+      fs.statSync(p).isDirectory() &&
+      fs.existsSync(path.join(p, 'package.json'))
+    );
+  });
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Overview" icon="book-open" href="/extensions/overview">
+    Learn how extensions work under the hood
+  </Card>
+  
+  <Card title="Compatibility" icon="check-circle" href="/extensions/compatibility">
+    Check which Raycast APIs are supported
+  </Card>
+</CardGroup>

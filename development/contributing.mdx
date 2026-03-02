@@ -1,0 +1,239 @@
+---
+title: Contributing to SuperCmd
+description: Guidelines for contributing to SuperCmd development
+---
+
+Thanks for your interest in contributing to SuperCmd! This guide will help you get started with development, understand our workflow, and submit quality contributions.
+
+## Quick Links
+
+- [Discord](https://discord.gg/CsdbknHqx5) — ask questions, discuss features
+- [GitHub Issues](https://github.com/SuperCmdLabs/SuperCmd/issues) — report bugs or request features
+- [Getting Started](../getting-started) — initial setup guide
+
+## Core Principles
+
+<Warning>
+**Raycast compatibility is the priority.** Extensions built for Raycast should work in SuperCmd with minimal or no changes. Before changing anything in `src/renderer/src/raycast-api/`, verify it doesn't break existing extensions.
+</Warning>
+
+SuperCmd follows these architectural principles:
+
+1. **Extension Compatibility** — The app must be compatible with existing Raycast extensions without requiring modifications to extension code
+2. **Runtime Control** — All changes and enhancements must be implemented in SuperCmd itself, not in extensions
+3. **API Parity** — Keep APIs in sync with `@raycast/api` and track implementation status
+4. **Progressive Enhancement** — Gradually implement all Raycast APIs to achieve full parity
+
+## Development Setup
+
+<Steps>
+  <Step title="Install Prerequisites">
+    Ensure you have the following installed:
+    - **macOS** (required — native Swift modules won't compile on Linux/Windows)
+    - **Node.js 22+** — check with `node -v`
+    - **Xcode Command Line Tools** — run `xcode-select --install`
+    - **Homebrew** — used at runtime to resolve `git` and `npm` for extension installation
+
+    Verify Swift is available:
+    ```bash
+    swiftc --version
+    ```
+  </Step>
+
+  <Step title="Clone and Install">
+    ```bash
+    git clone https://github.com/SuperCmdLabs/SuperCmd.git
+    cd SuperCmd
+    npm install
+    ```
+  </Step>
+
+  <Step title="Build Native Modules">
+    The `dev` script does **not** compile the Swift native helpers — you need to build them once before your first run:
+    ```bash
+    npm run build:native
+    ```
+
+    This compiles the Swift binaries (color picker, hotkey monitor, speech recognizer, window manager, etc.) into `dist/native/`.
+  </Step>
+
+  <Step title="Run Development Mode">
+    ```bash
+    npm run dev
+    ```
+
+    This starts:
+    - TypeScript watch for main process
+    - Vite dev server for renderer
+    - Electron app in development mode
+  </Step>
+
+  <Step title="Verify Build">
+    Make sure `npm run build` completes without errors before starting work:
+    ```bash
+    npm run build
+    ```
+  </Step>
+</Steps>
+
+## Making a Pull Request
+
+### Branch Naming
+
+Use descriptive branch names with a prefix:
+
+- `feat/description` — new feature
+- `fix/description` — bug fix
+- `docs/description` — documentation
+- `chore/description` — maintenance, cleanup
+- `test/description` — tests
+
+### Commit Messages
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```bash
+feat: add clipboard history search
+fix: resolve hotkey not registering on Sonoma
+docs: update AI setup instructions
+chore: remove unused dependencies
+test: add unit tests for ai-provider
+```
+
+### PR Checklist
+
+Before submitting your PR, verify:
+
+- [ ] `npm run build` completes without errors
+- [ ] You've tested your changes locally with `npm run dev`
+- [ ] Your PR description includes: what changed, why, compatibility impact, and how you tested it
+- [ ] If you modified the Raycast API shims, you've tested with at least one existing Raycast extension
+
+### PR Size
+
+<Warning>
+Keep PRs focused. A single PR should address one concern. If you're working on a large feature, consider breaking it into smaller PRs.
+</Warning>
+
+## Working with Extensions
+
+SuperCmd aims for compatibility with [Raycast extensions](https://www.raycast.com/store). When working on the runtime:
+
+1. **Test against popular extensions** — Calculator, Clipboard History, etc.
+2. **Check the API docs** — The shims are in `src/renderer/src/raycast-api/`. Reference the [Raycast API docs](https://developers.raycast.com/api-reference/)
+3. **Graceful degradation** — If an API is not yet implemented, add a stub that logs a warning rather than throwing
+
+### Testing Extension Compatibility
+
+<Steps>
+  <Step title="Install a Raycast Extension">
+    Use the extension store in SuperCmd to install a popular extension
+  </Step>
+
+  <Step title="Test Core Functionality">
+    Verify that the extension's core features work as expected
+  </Step>
+
+  <Step title="Check Console Logs">
+    Open DevTools (Cmd+Option+I) and check for errors or warnings
+  </Step>
+
+  <Step title="Document Issues">
+    If you find incompatibilities, identify the missing APIs and create an issue
+  </Step>
+</Steps>
+
+## Adding New API Support
+
+When implementing a new Raycast API:
+
+<Steps>
+  <Step title="Check Official Documentation">
+    Reference the [Raycast API docs](https://developers.raycast.com/api-reference/) for the official specification
+  </Step>
+
+  <Step title="Implement in raycast-api/">
+    Add the API to the appropriate runtime file in `src/renderer/src/raycast-api/`. See the [Raycast API File Map](https://github.com/SuperCmdLabs/SuperCmd/blob/main/CLAUDE.md#raycast-api-file-map) for guidance.
+  </Step>
+
+  <Step title="Bridge to Main Process (if needed)">
+    If system-level operations are needed, add IPC handlers in `src/main/main.ts` and expose them in `src/main/preload.ts`
+  </Step>
+
+  <Step title="Test with Extensions">
+    Verify compatibility with real Raycast extensions that use this API
+  </Step>
+
+  <Step title="Update Documentation">
+    Mark the API as implemented in `CLAUDE.md` and add usage examples if needed
+  </Step>
+</Steps>
+
+## Code Style and Patterns
+
+### System-Level Logic
+
+System-level logic lives in `src/main/`. IPC, settings, file access, and native module bridges belong here.
+
+```typescript
+// src/main/main.ts
+ipcMain.handle('get-applications', async () => {
+  // System operation
+  return getApplicationList();
+});
+```
+
+### UI Code
+
+UI code lives in `src/renderer/src/`. Views, hooks, and components go here.
+
+```typescript
+// src/renderer/src/hooks/useMyFeature.ts
+export function useMyFeature() {
+  // Feature logic, no JSX
+  return { state, actions };
+}
+```
+
+### Raycast API Compatibility
+
+All Raycast API implementations go in `src/renderer/src/raycast-api/`. Keep logic in focused runtime files and use `index.tsx` as an integration/export surface.
+
+```typescript
+// src/renderer/src/raycast-api/my-runtime.tsx
+export function MyRaycastComponent(props) {
+  // Implementation that matches Raycast API
+}
+```
+
+## Reporting Bugs
+
+When opening an issue, include:
+
+- macOS version
+- Node.js version (`node -v`)
+- SuperCmd version (Settings → About, or check `package.json`)
+- Steps to reproduce
+- Expected vs actual behavior
+- Console logs if available (Cmd+Option+I to open DevTools)
+
+## Available Scripts
+
+```bash
+npm run dev            # Start local development
+npm run build          # Build main, renderer, and native modules
+npm run build:main     # Build Electron main process TS
+npm run build:renderer # Build renderer with Vite
+npm run build:native   # Compile Swift helpers
+npm run package        # Build and package app with electron-builder
+```
+
+## Getting Help
+
+- **Discord** — Join our [Discord server](https://discord.gg/CsdbknHqx5) for real-time help
+- **GitHub Discussions** — Ask questions in [GitHub Discussions](https://github.com/SuperCmdLabs/SuperCmd/discussions)
+- **Documentation** — Check [CLAUDE.md](https://github.com/SuperCmdLabs/SuperCmd/blob/main/CLAUDE.md) for architecture details
+
+## Code of Conduct
+
+Be respectful. We're all here to build something great together.

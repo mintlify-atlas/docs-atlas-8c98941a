@@ -1,0 +1,194 @@
+---
+title: Development Setup
+description: Set up your local development environment for SuperCmd
+---
+
+This guide will help you get SuperCmd running locally for development and contributions.
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+<Warning>
+SuperCmd requires macOS for development. Native Swift modules won't compile on Linux or Windows.
+</Warning>
+
+- **macOS** - Required for Swift compilation and native integrations
+- **Node.js 22+** - Check your version with `node -v`
+- **npm** - Comes bundled with Node.js
+- **Xcode Command Line Tools** - Required for the Swift compiler (`swiftc`)
+- **Homebrew** - Used at runtime to resolve `git` and `npm` for extension installation
+
+## System Dependencies
+
+<Steps>
+  <Step title="Install Xcode Command Line Tools">
+    If you don't have Xcode Command Line Tools installed:
+    
+    ```bash
+    xcode-select --install
+    ```
+    
+    Verify Swift is available:
+    
+    ```bash
+    swiftc --version
+    ```
+  </Step>
+
+  <Step title="Install Homebrew">
+    SuperCmd uses Homebrew-resolved `git` to clone extensions from GitHub. If you don't have Homebrew:
+    
+    ```bash
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    ```
+    
+    Verify installation:
+    
+    ```bash
+    brew --version
+    ```
+  </Step>
+</Steps>
+
+## Getting Started
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/SuperCmdLabs/SuperCmd.git
+    cd SuperCmd
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    ```bash
+    npm install
+    ```
+    
+    This will install all Node.js dependencies and run `electron-builder install-app-deps` automatically via the postinstall hook.
+  </Step>
+
+  <Step title="Build native modules">
+    <Warning>
+    The `dev` script does **not** compile Swift native helpers. You must build them before your first run.
+    </Warning>
+    
+    ```bash
+    npm run build:native
+    ```
+    
+    This compiles the Swift binaries into `dist/native/`:
+    - `color-picker` - Native macOS color picker
+    - `snippet-expander` - Text snippet expansion
+    - `hotkey-hold-monitor` - Global hotkey detection
+    - `speech-recognizer` - Speech-to-text recognizer
+    - `microphone-access` - Microphone permission helper
+    - `input-monitoring-request` - Input monitoring permission helper
+    - `window-adjust` - Window management utilities
+  </Step>
+
+  <Step title="Run in development mode">
+    ```bash
+    npm run dev
+    ```
+    
+    This starts three processes concurrently:
+    - TypeScript watch for main process
+    - Vite dev server for renderer
+    - Electron app in development mode
+    
+    <Note>
+    The environment variable `SUPERCMD_OPEN_DEVTOOLS_ON_STARTUP=1` is set automatically in dev mode to open DevTools on launch.
+    </Note>
+  </Step>
+</Steps>
+
+## macOS Permissions
+
+SuperCmd requires several macOS permissions to function properly. You'll be prompted on first use:
+
+| Permission | Why | Required for |
+|------------|-----|-------------|
+| **Accessibility** | Window management, keystroke injection | Window tiling, snippet expansion |
+| **Input Monitoring** | Global hotkey detection | Hold-to-speak, launcher shortcut |
+| **Microphone** | Voice dictation (speech-to-text) | Optional — voice features |
+| **Automation (AppleScript)** | Selected text capture, system automation | Extension actions |
+
+<Note>
+You may need to restart the app after granting permissions. If features don't work, check **System Settings → Privacy & Security**.
+</Note>
+
+## Development Workflow
+
+### Making Changes
+
+1. Make your changes in the appropriate directory:
+   - `src/main/` - Electron main process
+   - `src/renderer/` - React UI and Raycast API shims
+   - `src/native/` - Swift native helpers
+
+2. The dev server will hot-reload renderer changes automatically
+3. Main process changes require restarting the Electron app
+4. Native module changes require running `npm run build:native` again
+
+### Testing Extensions
+
+When working on the Raycast API compatibility layer:
+
+- Test with popular Raycast extensions from the [store](https://www.raycast.com/store)
+- API shims are in `src/renderer/src/raycast-api/`
+- Reference the [Raycast API docs](https://developers.raycast.com/api-reference/)
+- See [CLAUDE.md](https://github.com/SuperCmdLabs/SuperCmd/blob/main/CLAUDE.md) for the complete API implementation status
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="swiftc: command not found">
+    Run `xcode-select --install` and restart your terminal. Verify with `swiftc --version`.
+  </Accordion>
+
+  <Accordion title="npm install fails on native modules">
+    Ensure Xcode Command Line Tools are installed and up to date:
+    
+    ```bash
+    softwareupdate --install -a
+    ```
+  </Accordion>
+
+  <Accordion title="App launches but hotkeys don't work">
+    Grant **Input Monitoring** permission (not just Accessibility) in **System Settings → Privacy & Security** and restart the app.
+  </Accordion>
+
+  <Accordion title="Window management doesn't work">
+    Grant **Accessibility** permission. The `window-adjust.swift` module checks `AXIsProcessTrusted()`.
+  </Accordion>
+
+  <Accordion title="Extensions fail to install">
+    Verify Homebrew is installed with `brew --version`. SuperCmd needs Homebrew-resolved `git` to clone extensions from GitHub.
+  </Accordion>
+
+  <Accordion title="node-gyp build errors">
+    Check your Node.js version with `node -v` — requires 22+. Try deleting `node_modules` and running `npm install` again.
+  </Accordion>
+
+  <Accordion title="Apple Silicon (M1/M2/M3/M4) issues">
+    Ensure you're running the arm64 version of Node.js, not the x64 version via Rosetta. Check with:
+    
+    ```bash
+    node -p "process.arch"
+    ```
+    
+    Should output `arm64`.
+  </Accordion>
+
+  <Accordion title="Native features missing after npm run dev">
+    Run `npm run build:native` first. The dev script doesn't compile Swift binaries automatically.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+- Learn about the [project architecture](/development/architecture)
+- Understand [build commands and packaging](/development/building)
+- Read the [contributing guidelines](https://github.com/SuperCmdLabs/SuperCmd/blob/main/CONTRIBUTING.md)

@@ -1,0 +1,513 @@
+---
+title: 'Extension Runtime'
+description: 'Learn how SuperCmd executes Raycast extensions using esbuild bundling and custom require shims'
+---
+
+## Overview
+
+SuperCmd's extension runtime provides full compatibility with Raycast extensions without requiring any modifications to extension code. The runtime achieves this through a sophisticated bundling and shimming system that intercepts extension imports and provides SuperCmd's implementations of the Raycast API.
+
+## Architecture
+
+The extension execution model follows these key principles:
+
+<Steps>
+  <Step title="Extension Discovery">
+    Extensions are discovered from configured directories and the Raycast registry
+  </Step>
+  <Step title="Build-Time Bundling">
+    Extension code is bundled to CommonJS using esbuild at install time
+  </Step>
+  <Step title="Runtime Shimming">
+    A custom require() function provides React and @raycast/api implementations
+  </Step>
+  <Step title="Isolated Execution">
+    Extensions run in isolated contexts while sharing React with the host app
+  </Step>
+</Steps>
+
+## Extension Loading
+
+### Discovery Process
+
+Extensions are discovered from multiple sources:
+
+```typescript
+function getConfiguredExtensionRoots(): string[] {
+  const settingsPaths = loadSettings().customExtensionFolders || [];
+  const envPaths = process.env.SUPERCMD_EXTENSION_PATHS?.split(':') || [];
+  
+  return [
+    getManagedExtensionsDir(), // ~/Library/Application Support/SuperCmd/extensions
+    ...settingsPaths,
+    ...envPaths
+  ];
+}
+```
+
+The system scans these directories for valid `package.json` files that define Raycast extension manifests.
+
+### Extension Structure
+
+Each extension must have:
+
+- **package.json**: Manifest defining commands, preferences, and metadata
+- **src/**: Source code directory containing command entry points
+- **assets/**: Optional icon and media files
+- **node_modules/**: Runtime dependencies (installed at build time)
+
+## Build System
+
+### Bundling with esbuild
+
+SuperCmd bundles extensions at install time, not runtime. This approach provides:
+
+- **Fast Loading**: Pre-built bundles load instantly
+- **Dependency Resolution**: All imports are resolved at build time
+- **Code Optimization**: Minification and tree-shaking reduce bundle size
+
+<Tabs>
+  <Tab title="Build Configuration">
+    ```typescript
+    await esbuild.build({
+      entryPoints: [entryFile],
+      absWorkingDir: extPath,
+      bundle: true,
+      format: 'cjs',
+      platform: 'node',
+      outfile: path.join(buildDir, `${cmdName}.js`),
+      external: [
+        'react',
+        'react-dom',
+        '@raycast/api',
+        '@raycast/utils',
+        're2',
+        'better-sqlite3',
+        ...nodeBuiltins
+      ],
+      target: 'es2020',
+      jsx: 'automatic',
+      jsxImportSource: 'react',
+    });
+    ```
+  </Tab>
+  <Tab title="External Modules">
+    The following modules are kept external and provided at runtime:
+
+    - **react**, **react-dom**: Shared with host app
+    - **@raycast/api**, **@raycast/utils**: Compatibility shim
+    - **Native modules**: re2, better-sqlite3, fsevents
+    - **Node.js built-ins**: All standard modules
+  </Tab>
+  <Tab title="Entry Resolution">
+    ```typescript
+    function resolveEntryFile(extPath: string, cmd: any): string | null {
+      const candidates = [
+        path.join(srcDir, `${cmdName}.tsx`),
+        path.join(srcDir, `${cmdName}.ts`),
+        path.join(srcDir, cmdName, 'index.tsx'),
+        path.join(srcDir, 'commands', `${cmdName}.tsx`),
+      ];
+      
+      return candidates.find(p => fs.existsSync(p)) || null;
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### TypeScript Configuration
+
+Extensions can define custom TypeScript compiler options:
+
+```typescript
+function getEsbuildTsconfigRaw(extPath: string): string {
+  const extensionCompilerOptions = getExtensionCompilerOptions(extPath);
+  return JSON.stringify({
+    compilerOptions: {
+      target: 'ES2020',
+      jsx: 'react-jsx',
+      jsxImportSource: 'react',
+      strict: false,
+      esModuleInterop: true,
+      moduleResolution: 'node',
+      ...extensionCompilerOptions,
+    },
+  });
+}
+```
+
+This allows extensions to use:
+- Custom **baseUrl** and **paths** for import aliases
+- Alternative **jsx** configurations
+- Extension-specific compiler flags
+
+## Runtime Execution
+
+### Bundle Loading
+
+When a command is executed, SuperCmd loads the pre-built bundle:
+
+```typescript
+export async function getExtensionBundle(
+  extName: string,
+  cmdName: string
+): Promise<ExtensionBundleResult | null> {
+  const extPath = resolveInstalledExtensionPath(extName);
+  let outFile = path.join(extPath, '.sc-build', `${cmdName}.js`);
+  
+  // On-demand build if missing
+  if (!fs.existsSync(outFile)) {
+    await buildSingleCommand(extName, cmdName);
+  }
+  
+  const code = fs.readFileSync(outFile, 'utf-8');
+  // ... metadata extraction ...
+  
+  return { code, title, mode, preferences, ... };
+}
+```
+
+### Custom Require Shim
+
+The renderer process provides a custom `require()` function that intercepts module requests:
+
+<Note>
+Extensions share the same React instance as the host app. This is critical for React contexts, hooks, and component lifecycle to work correctly.
+</Note>
+
+```typescript
+// Simplified example of the require shim
+function fakeRequire(moduleName: string) {
+  if (moduleName === 'react' || moduleName === 'react-dom') {
+    return React; // Shared instance
+  }
+  
+  if (moduleName === '@raycast/api') {
+    return raycastApiShim; // Compatibility layer
+  }
+  
+  if (moduleName === '@raycast/utils') {
+    return raycastUtilsShim; // Utility hooks
+  }
+  
+  // Node.js built-ins go through Electron IPC
+  if (nodeBuiltins.includes(moduleName)) {
+    return createNodeShim(moduleName);
+  }
+  
+  throw new Error(`Module not found: ${moduleName}`);
+}
+```
+
+### Extension Context
+
+Each extension receives a context object with metadata and preferences:
+
+```typescript
+export interface ExtensionContextType {
+  extensionName: string;
+  extensionDisplayName?: string;
+  commandName: string;
+  assetsPath: string;        // Path to assets/ directory
+  supportPath: string;        // Path for extension data storage
+  owner: string;
+  preferences: Record<string, any>;
+  commandMode: 'view' | 'no-view' | 'menu-bar';
+}
+```
+
+This context is accessible via the `environment` object:
+
+```typescript
+import { environment } from '@raycast/api';
+
+// Inside extension code
+console.log(environment.extensionName);  // 'my-extension'
+console.log(environment.assetsPath);     // '/path/to/assets'
+```
+
+## Preferences System
+
+### Preference Definition
+
+Extensions define preferences in their manifest:
+
+```json
+{
+  "preferences": [
+    {
+      "name": "apiKey",
+      "type": "password",
+      "required": true,
+      "title": "API Key",
+      "description": "Your service API key"
+    }
+  ],
+  "commands": [
+    {
+      "name": "search",
+      "title": "Search Items",
+      "preferences": [
+        {
+          "name": "limit",
+          "type": "textfield",
+          "default": "10",
+          "title": "Result Limit"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Preference Resolution
+
+<Accordion title="Default Value Resolution">
+  ```typescript
+  function parsePreferences(pkg: any, cmdName: string) {
+    const extensionPrefs: Record<string, any> = {};
+    const commandPrefs: Record<string, any> = {};
+    
+    // Extension-level preferences
+    for (const pref of pkg.preferences || []) {
+      const resolvedDefault = resolvePlatformDefault(pref.default);
+      if (resolvedDefault !== undefined) {
+        extensionPrefs[pref.name] = resolvedDefault;
+      } else if (pref.type === 'checkbox') {
+        extensionPrefs[pref.name] = false;
+      } else if (pref.type === 'textfield') {
+        extensionPrefs[pref.name] = '';
+      }
+    }
+    
+    return { extensionPrefs, commandPrefs };
+  }
+  ```
+</Accordion>
+
+Preferences support platform-specific defaults:
+
+```typescript
+function resolvePlatformDefault(value: any): any {
+  const platformKey = process.platform === 'win32' ? 'Windows' : 'macOS';
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    if (value.hasOwnProperty(platformKey)) {
+      return value[platformKey];
+    }
+    return value.macOS ?? value.Windows;
+  }
+  return value;
+}
+```
+
+## Dependency Management
+
+### Runtime Dependencies
+
+Extensions can declare runtime dependencies in `package.json`:
+
+```json
+{
+  "dependencies": {
+    "axios": "^1.6.0",
+    "date-fns": "^2.30.0"
+  }
+}
+```
+
+SuperCmd installs these dependencies at extension install time:
+
+```typescript
+function getInstallableRuntimeDeps(pkg: any): string[] {
+  const deps = {
+    ...(pkg?.dependencies || {}),
+    ...(pkg?.optionalDependencies || {}),
+  };
+  
+  return Object.entries(deps)
+    .filter(([name]) => !name.startsWith('@raycast/'))
+    .map(([name, version]) => `${name}@${version}`);
+}
+```
+
+### External Packages
+
+Certain packages must remain external due to native bindings or special handling:
+
+<Tabs>
+  <Tab title="Native Modules">
+    ```typescript
+    const nativeModules = [
+      're2',              // C++ regex engine
+      'better-sqlite3',   // SQLite native bindings
+      'fsevents',         // macOS file system events
+    ];
+    ```
+  </Tab>
+  <Tab title="HTTP Libraries">
+    ```typescript
+    const httpLibs = [
+      'axios',
+      'node-fetch',
+      'undici',
+      'tar',
+      'extract-zip',
+    ];
+    ```
+    These are shimmed in the renderer to route through Electron IPC for proper file system access.
+  </Tab>
+</Tabs>
+
+## Platform Compatibility
+
+### Platform Filtering
+
+Extensions can specify platform requirements:
+
+```json
+{
+  "platforms": ["darwin"],
+  "commands": [
+    {
+      "name": "mac-only",
+      "platforms": ["darwin"]
+    }
+  ]
+}
+```
+
+```typescript
+function isManifestPlatformCompatible(pkg: any): boolean {
+  if (!pkg.platforms) return true;
+  const currentPlatform = process.platform === 'win32' ? 'Windows' : 'macOS';
+  return pkg.platforms.includes(currentPlatform);
+}
+```
+
+## Error Handling
+
+### Build Failures
+
+When a build fails, SuperCmd provides detailed diagnostics:
+
+```typescript
+if (!fs.existsSync(outFile)) {
+  let diagnostic = '';
+  try {
+    const cmd = commands.find((c: any) => c?.name === cmdName);
+    const entry = resolveEntryFile(extPath, cmd);
+    
+    if (!cmd) {
+      diagnostic = ` Command "${cmdName}" not found in package.json.`;
+    } else if (!entry) {
+      diagnostic = ` Entry file not found for "${cmdName}".`;
+    } else if (requiresNodeModules && !nodeModulesExists) {
+      diagnostic = ' node_modules is missing.';
+    }
+  } catch {}
+  
+  throw new Error(
+    `Build failed for ${extName}/${cmdName}.${diagnostic}`
+  );
+}
+```
+
+### Runtime Errors
+
+Extension errors are captured and reported through the SuperCmd UI:
+
+```typescript
+try {
+  // Execute extension code
+  const module = { exports: {} };
+  const fn = new Function('require', 'module', 'exports', code);
+  fn(fakeRequire, module, module.exports);
+} catch (error) {
+  console.error('Extension execution error:', error);
+  showToast({
+    style: Toast.Style.Failure,
+    title: 'Extension Error',
+    message: error.message
+  });
+}
+```
+
+## Performance Optimizations
+
+### Build Caching
+
+<CardGroup cols={2}>
+  <Card title="Pre-built Bundles" icon="bolt">
+    All commands are built at install time, eliminating runtime compilation overhead.
+  </Card>
+  <Card title="Incremental Builds" icon="arrows-rotate">
+    Only changed commands are rebuilt when extensions are updated.
+  </Card>
+  <Card title="Parallel Bundling" icon="code-branch">
+    Multiple commands can be built in parallel for faster installation.
+  </Card>
+  <Card title="Shared Dependencies" icon="share-nodes">
+    React and common utilities are loaded once and shared across all extensions.
+  </Card>
+</CardGroup>
+
+### On-Demand Building
+
+If a pre-built bundle is missing, SuperCmd builds it on-demand:
+
+```typescript
+export async function buildSingleCommand(
+  extName: string, 
+  cmdName: string
+): Promise<boolean> {
+  const extPath = resolveInstalledExtensionPath(extName);
+  const entryFile = resolveEntryFile(extPath, cmd);
+  
+  console.log(`On-demand building ${extName}/${cmdName}...`);
+  await esbuild.build({ /* ... */ });
+  
+  return fs.existsSync(outFile);
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Extension Development">
+    - Keep command entry points small and focused
+    - Use dynamic imports for large dependencies
+    - Minimize the number of external dependencies
+    - Test extensions with `NODE_ENV=production`
+  </Accordion>
+  
+  <Accordion title="Debugging">
+    - Use `console.log()` for debugging (appears in main console)
+    - Check `.sc-build/` directory for built bundles
+    - Inspect bundled code to verify transformations
+    - Test with real Raycast extensions to ensure compatibility
+  </Accordion>
+  
+  <Accordion title="Performance">
+    - Avoid heavy computation in component render functions
+    - Use React.memo() for expensive components
+    - Leverage useCallback() and useMemo() hooks
+    - Keep bundle sizes under 1MB when possible
+  </Accordion>
+</AccordionGroup>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Raycast API" href="./raycast-api" icon="code">
+    Learn about the Raycast API compatibility layer
+  </Card>
+  <Card title="Electron Architecture" href="./electron-architecture" icon="window">
+    Understand the Electron process architecture
+  </Card>
+  <Card title="Native Modules" href="./native-modules" icon="apple">
+    Explore SuperCmd's native Swift integrations
+  </Card>
+  <Card title="Extension Registry" href="/guides/installing-extensions" icon="store">
+    Install and manage extensions
+  </Card>
+</CardGroup>

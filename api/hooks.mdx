@@ -1,0 +1,525 @@
+---
+title: 'Hooks'
+description: 'React hooks for state management and async operations'
+icon: 'hook'
+---
+
+SuperCmd implements all Raycast hooks from both `@raycast/api` and `@raycast/utils`. All hooks are fully compatible with the Raycast API specification.
+
+## Navigation
+
+### useNavigation
+
+<Card title="useNavigation" icon="route" href="#usenavigation">
+  Navigate between views in your extension
+</Card>
+
+The `useNavigation` hook provides methods to navigate between views.
+
+<ParamField path="push" type="(component: React.ReactElement) => void">
+  Push a new view onto the navigation stack
+</ParamField>
+
+<ParamField path="pop" type="() => void">
+  Pop the current view from the navigation stack
+</ParamField>
+
+```tsx
+import { useNavigation, Detail, List } from '@raycast/api';
+
+function MyList() {
+  const { push } = useNavigation();
+  
+  return (
+    <List>
+      <List.Item 
+        title="View Details"
+        actions={
+          <ActionPanel>
+            <Action 
+              title="Open" 
+              onAction={() => push(<Detail markdown="# Details" />)}
+            />
+          </ActionPanel>
+        }
+      />
+    </List>
+  );
+}
+```
+
+---
+
+## Data Fetching
+
+### useFetch
+
+<Card title="useFetch" icon="download" href="#usefetch">
+  Fetch data from HTTP APIs with automatic state management
+</Card>
+
+Fetch data from HTTP endpoints with built-in loading states, error handling, and pagination.
+
+**Type Signature:**
+```tsx
+function useFetch<T = any, U = undefined>(
+  url: string | ((options: { page: number; cursor?: string }) => string),
+  options?: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: any;
+    mapResult?: (result: any) => { data: T; hasMore?: boolean; cursor?: string } | T;
+    parseResponse?: (response: Response) => Promise<any>;
+    initialData?: T;
+    execute?: boolean;
+    keepPreviousData?: boolean;
+    onData?: (data: T) => void;
+    onError?: (error: Error) => void;
+    onWillExecute?: () => void;
+  }
+): {
+  data: T | undefined;
+  isLoading: boolean;
+  error: Error | undefined;
+  revalidate: () => void;
+  mutate: (asyncUpdate?: Promise<T>, options?: any) => Promise<T | undefined>;
+  pagination: { page: number; hasMore: boolean; onLoadMore: () => void };
+}
+```
+
+**Example:**
+```tsx
+import { useFetch } from '@raycast/utils';
+import { List } from '@raycast/api';
+
+function MyCommand() {
+  const { data, isLoading } = useFetch('https://api.example.com/items');
+  
+  return (
+    <List isLoading={isLoading}>
+      {data?.map(item => (
+        <List.Item key={item.id} title={item.name} />
+      ))}
+    </List>
+  );
+}
+```
+
+---
+
+### usePromise
+
+<Card title="usePromise" icon="clock" href="#usepromise">
+  Execute async functions with state management
+</Card>
+
+Execute asynchronous functions with automatic state tracking.
+
+**Type Signature:**
+```tsx
+function usePromise<T>(
+  fn: (...args: any[]) => Promise<T>,
+  args?: any[],
+  options?: {
+    execute?: boolean;
+    onData?: (data: T) => void;
+    onError?: (error: Error) => void;
+    onWillExecute?: () => void;
+  }
+): {
+  data: T | undefined;
+  isLoading: boolean;
+  error: Error | undefined;
+  revalidate: () => void;
+  mutate: (asyncUpdate?: Promise<T>) => Promise<T | undefined>;
+}
+```
+
+**Example:**
+```tsx
+import { usePromise } from '@raycast/utils';
+
+function MyCommand() {
+  const { data, isLoading } = usePromise(
+    async (query: string) => {
+      const response = await fetch(`https://api.example.com/search?q=${query}`);
+      return response.json();
+    },
+    ['initial query']
+  );
+  
+  return <List isLoading={isLoading}>...</List>;
+}
+```
+
+---
+
+### useCachedPromise
+
+<Card title="useCachedPromise" icon="database" href="#usecachedpromise">
+  Execute async functions with caching and pagination
+</Card>
+
+Like `usePromise` but with built-in caching and pagination support.
+
+**Type Signature:**
+```tsx
+function useCachedPromise<T>(
+  fn: (...args: any[]) => Promise<T>,
+  args?: any[],
+  options?: {
+    execute?: boolean;
+    keepPreviousData?: boolean;
+    initialData?: T;
+    onData?: (data: T) => void;
+    onError?: (error: Error) => void;
+    abortable?: AbortController;
+  }
+): {
+  data: T | undefined;
+  isLoading: boolean;
+  error: Error | undefined;
+  revalidate: () => void;
+  mutate: (data: T | Promise<T>) => Promise<T | undefined>;
+}
+```
+
+---
+
+### useCachedState
+
+<Card title="useCachedState" icon="floppy-disk" href="#usecachedstate">
+  Persist state to local storage automatically
+</Card>
+
+State hook that persists to LocalStorage automatically.
+
+**Type Signature:**
+```tsx
+function useCachedState<T>(
+  key: string,
+  initialValue?: T
+): [T | undefined, (value: T | undefined) => void, boolean]
+```
+
+**Example:**
+```tsx
+import { useCachedState } from '@raycast/utils';
+
+function MyCommand() {
+  const [query, setQuery] = useCachedState<string>('search-query', '');
+  
+  return (
+    <List 
+      searchText={query}
+      onSearchTextChange={setQuery}
+    >
+      ...
+    </List>
+  );
+}
+```
+
+---
+
+## Form Management
+
+### useForm
+
+<Card title="useForm" icon="rectangle-list" href="#useform">
+  Manage form state with validation
+</Card>
+
+Manage form values, validation, and field props.
+
+**Type Signature:**
+```tsx
+function useForm<T extends Form.Values>(options?: {
+  onSubmit: (values: T) => void | Promise<void>;
+  initialValues?: Partial<T>;
+  validation?: {
+    [K in keyof T]?: (value: T[K]) => string | undefined | null;
+  };
+}): {
+  handleSubmit: (values: T) => void;
+  itemProps: <K extends keyof T>(id: K) => {
+    id: string;
+    value: T[K];
+    error: string | undefined;
+    onChange: (value: T[K]) => void;
+    onBlur: () => void;
+  };
+  values: T;
+  setValues: (values: Partial<T>) => void;
+  reset: () => void;
+}
+```
+
+**Example:**
+```tsx
+import { useForm } from '@raycast/utils';
+import { Form, Action, ActionPanel } from '@raycast/api';
+
+interface FormValues {
+  name: string;
+  email: string;
+}
+
+function MyCommand() {
+  const { handleSubmit, itemProps } = useForm<FormValues>({
+    onSubmit: (values) => console.log(values),
+    validation: {
+      email: (value) => {
+        if (!value?.includes('@')) return 'Invalid email';
+      },
+    },
+  });
+  
+  return (
+    <Form
+      actions={
+        <ActionPanel>
+          <Action.SubmitForm title="Submit" onSubmit={handleSubmit} />
+        </ActionPanel>
+      }
+    >
+      <Form.TextField title="Name" {...itemProps('name')} />
+      <Form.TextField title="Email" {...itemProps('email')} />
+    </Form>
+  );
+}
+```
+
+---
+
+## Shell & SQL
+
+### useExec
+
+<Card title="useExec" icon="terminal" href="#useexec">
+  Execute shell commands with state tracking
+</Card>
+
+Execute shell commands and track their output and state.
+
+**Type Signature:**
+```tsx
+function useExec(
+  command: string,
+  args: string[],
+  options?: {
+    execute?: boolean;
+    cwd?: string;
+    shell?: boolean;
+    env?: Record<string, string>;
+    timeout?: number;
+    stripFinalNewline?: boolean;
+    onData?: (data: string) => void;
+    onError?: (error: Error) => void;
+  }
+): {
+  data: string | undefined;
+  isLoading: boolean;
+  error: Error | undefined;
+  revalidate: () => void;
+}
+```
+
+**Example:**
+```tsx
+import { useExec } from '@raycast/utils';
+
+function MyCommand() {
+  const { data, isLoading } = useExec('git', ['status']);
+  
+  return <Detail markdown={data || 'Loading...'} isLoading={isLoading} />;
+}
+```
+
+---
+
+### useSQL
+
+<Card title="useSQL" icon="database" href="#usesql">
+  Query SQLite databases with state tracking
+</Card>
+
+Query SQLite databases with automatic state management.
+
+**Type Signature:**
+```tsx
+function useSQL<T = any>(
+  databasePath: string,
+  query: string,
+  options?: {
+    execute?: boolean;
+    permissionView?: React.ReactNode;
+    onData?: (data: T[]) => void;
+    onError?: (error: Error) => void;
+  }
+): {
+  data: T[] | undefined;
+  isLoading: boolean;
+  error: Error | undefined;
+  revalidate: () => void;
+  permissionView: React.ReactNode;
+}
+```
+
+---
+
+## AI & Streaming
+
+### useAI
+
+<Card title="useAI" icon="wand-magic-sparkles" href="#useai">
+  Execute AI prompts with streaming support
+</Card>
+
+Execute AI prompts with automatic state tracking and streaming.
+
+**Type Signature:**
+```tsx
+function useAI(
+  prompt: string,
+  options?: {
+    model?: string;
+    creativity?: 'none' | 'low' | 'medium' | 'high' | 'maximum' | number;
+    execute?: boolean;
+    stream?: boolean;
+    onData?: (data: string) => void;
+    onError?: (error: Error) => void;
+    onWillExecute?: (args: [string]) => void;
+  }
+): {
+  data: string;
+  isLoading: boolean;
+  error: Error | undefined;
+  revalidate: () => void;
+}
+```
+
+**Example:**
+```tsx
+import { useAI } from '@raycast/utils';
+import { Detail } from '@raycast/api';
+
+function MyCommand() {
+  const { data, isLoading } = useAI('Explain React hooks in 3 sentences', {
+    creativity: 'medium',
+    stream: true,
+  });
+  
+  return <Detail markdown={data || 'Thinking...'} isLoading={isLoading} />;
+}
+```
+
+---
+
+### useStreamJSON
+
+<Card title="useStreamJSON" icon="stream" href="#usestreamjson">
+  Fetch and stream JSON data with client-side pagination
+</Card>
+
+Fetch JSON data with client-side filtering, transformation, and pagination.
+
+**Type Signature:**
+```tsx
+function useStreamJSON<T>(
+  url: string,
+  options?: {
+    dataPath?: string;
+    filter?: (item: T) => boolean;
+    transform?: (item: any) => T;
+    pageSize?: number;
+    execute?: boolean;
+    onData?: (items: T[]) => void;
+    onError?: (error: Error) => void;
+  }
+): {
+  data: T[] | undefined;
+  isLoading: boolean;
+  error: Error | undefined;
+  pagination: { hasMore: boolean; onLoadMore: () => void };
+}
+```
+
+---
+
+## Utilities
+
+### useLocalStorage
+
+<Card title="useLocalStorage" icon="box-archive" href="#uselocalstorage">
+  React hook for LocalStorage with change notifications
+</Card>
+
+LocalStorage hook with automatic synchronization across extensions.
+
+**Type Signature:**
+```tsx
+function useLocalStorage<T extends LocalStorage.Value>(
+  key: string,
+  initialValue?: T
+): {
+  value: T | undefined;
+  setValue: (value: T) => Promise<void>;
+  removeValue: () => Promise<void>;
+  isLoading: boolean;
+}
+```
+
+---
+
+### useFrecencySorting
+
+<Card title="useFrecencySorting" icon="arrow-up-short-wide" href="#usefrecencysorting">
+  Sort items by frequency and recency
+</Card>
+
+Sort items based on frequency and recency of access.
+
+**Type Signature:**
+```tsx
+function useFrecencySorting<T>(
+  items: T[],
+  options: {
+    key: (item: T) => string;
+    namespace?: string;
+  }
+): {
+  data: T[];
+  visitItem: (item: T) => Promise<void>;
+  resetRanking: (item: T) => Promise<void>;
+}
+```
+
+**Example:**
+```tsx
+import { useFrecencySorting } from '@raycast/utils';
+import { List } from '@raycast/api';
+
+function MyCommand() {
+  const allItems = [{ id: '1', name: 'Item 1' }, { id: '2', name: 'Item 2' }];
+  const { data, visitItem } = useFrecencySorting(allItems, {
+    key: (item) => item.id,
+  });
+  
+  return (
+    <List>
+      {data.map(item => (
+        <List.Item 
+          key={item.id} 
+          title={item.name}
+          actions={
+            <ActionPanel>
+              <Action title="Select" onAction={() => visitItem(item)} />
+            </ActionPanel>
+          }
+        />
+      ))}
+    </List>
+  );
+}
+```

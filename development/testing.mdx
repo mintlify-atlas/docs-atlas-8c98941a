@@ -1,0 +1,383 @@
+---
+title: Testing
+description: Testing strategies and best practices for SuperCmd development
+---
+
+SuperCmd currently relies on manual testing and real-world extension compatibility testing. This guide covers the testing workflow and best practices.
+
+## Testing Strategy
+
+SuperCmd uses a multi-layered testing approach:
+
+1. **Unit Tests** — Test individual API implementations (planned)
+2. **Integration Tests** — Test extension loading and execution (planned)
+3. **Compatibility Tests** — Test with real Raycast extensions (active)
+4. **System Tests** — Test macOS integration features (manual)
+
+<Warning>
+Currently, SuperCmd does not have automated unit or integration tests. All testing is done manually through development mode and real extension testing.
+</Warning>
+
+## Manual Testing Workflow
+
+### Local Development Testing
+
+<Steps>
+  <Step title="Build Native Modules">
+    Before testing, ensure native modules are compiled:
+    ```bash
+    npm run build:native
+    ```
+  </Step>
+
+  <Step title="Start Development Mode">
+    Launch the app in development mode:
+    ```bash
+    npm run dev
+    ```
+    This starts TypeScript watch, Vite dev server, and Electron in development mode.
+  </Step>
+
+  <Step title="Open DevTools">
+    Press `Cmd+Option+I` to open Chrome DevTools for debugging:
+    - Check console for errors and warnings
+    - Inspect network requests
+    - Debug React components
+    - Monitor IPC calls
+  </Step>
+
+  <Step title="Test Changes">
+    Make your changes and test:
+    - Verify UI updates correctly
+    - Check that hotkeys work
+    - Test extension compatibility
+    - Validate IPC communication
+  </Step>
+</Steps>
+
+### Testing a Full Build
+
+Before submitting a PR, test a production build:
+
+```bash
+# Build all components
+npm run build
+
+# Verify no build errors
+# Check dist/ output
+
+# Package the app (optional)
+npm run package
+```
+
+## Extension Compatibility Testing
+
+The most critical testing for SuperCmd is ensuring Raycast extensions work correctly.
+
+### Testing Popular Extensions
+
+<Steps>
+  <Step title="Install Extension">
+    Use SuperCmd's extension store to install a popular Raycast extension:
+    - Calculator
+    - Clipboard History
+    - System Monitor
+    - File Search
+  </Step>
+
+  <Step title="Test Core Functionality">
+    Verify the extension's primary features:
+    - Does it load without errors?
+    - Do actions work correctly?
+    - Are keyboard shortcuts functional?
+    - Does navigation work (push/pop)?
+  </Step>
+
+  <Step title="Check Console Output">
+    Open DevTools (`Cmd+Option+I`) and look for:
+    - Errors in red
+    - Warnings about missing APIs
+    - Failed IPC calls
+    - React errors or warnings
+  </Step>
+
+  <Step title="Test Edge Cases">
+    Try unusual scenarios:
+    - Empty states
+    - Error handling
+    - Loading states
+    - Large datasets
+  </Step>
+</Steps>
+
+### Testing New API Implementations
+
+When implementing a new Raycast API:
+
+<Accordion title="API Testing Checklist">
+  <AccordionItem title="Reference Documentation">
+    Check the [Raycast API docs](https://developers.raycast.com/api-reference/) for the official specification
+  </AccordionItem>
+  
+  <AccordionItem title="Find Example Extension">
+    Find a Raycast extension that uses this API
+  </AccordionItem>
+  
+  <AccordionItem title="Install and Test">
+    Install the extension in SuperCmd and verify it works
+  </AccordionItem>
+  
+  <AccordionItem title="Check Console">
+    Look for errors, warnings, or missing API calls
+  </AccordionItem>
+  
+  <AccordionItem title="Test Parameters">
+    Verify all parameters and options work correctly
+  </AccordionItem>
+  
+  <AccordionItem title="Test Edge Cases">
+    Try unusual inputs, undefined values, and error conditions
+  </AccordionItem>
+</Accordion>
+
+## Testing Scenarios by Feature
+
+### Testing Raycast API Components
+
+#### List Component
+
+```typescript
+// Test checklist:
+- [ ] Items render correctly
+- [ ] Filtering works
+- [ ] Accessories display
+- [ ] Detail view shows
+- [ ] Actions are available
+- [ ] Keyboard navigation works
+- [ ] Empty state displays
+```
+
+#### Form Component
+
+```typescript
+// Test checklist:
+- [ ] All field types render
+- [ ] Validation works
+- [ ] Submit action fires
+- [ ] Draft saving works (if enabled)
+- [ ] Error messages display
+- [ ] Field focus works
+```
+
+#### Grid Component
+
+```typescript
+// Test checklist:
+- [ ] Items display in grid
+- [ ] Sections group correctly
+- [ ] Fit/Inset modes work
+- [ ] Selection works
+- [ ] Actions are available
+- [ ] Keyboard navigation works
+```
+
+#### ActionPanel
+
+```typescript
+// Test checklist:
+- [ ] Actions display correctly
+- [ ] Keyboard shortcuts work
+- [ ] Submenus open
+- [ ] Action callbacks fire
+- [ ] Icons render
+- [ ] Cmd+K opens panel
+```
+
+### Testing Native Features
+
+Native macOS features require system permissions and manual testing:
+
+<Accordion title="Native Feature Tests">
+  <AccordionItem title="Global Hotkeys">
+    - Test hold-to-speak hotkey
+    - Test launcher shortcut
+    - Verify Input Monitoring permission is granted
+    - Test hotkey conflicts with other apps
+  </AccordionItem>
+  
+  <AccordionItem title="Window Management">
+    - Test window show/hide
+    - Test window positioning
+    - Verify Accessibility permission is granted
+    - Test window tiling actions
+  </AccordionItem>
+  
+  <AccordionItem title="Speech Recognition">
+    - Test microphone access
+    - Test Whisper STT
+    - Verify Microphone permission is granted
+    - Test native speech recognition
+  </AccordionItem>
+  
+  <AccordionItem title="Text-to-Speech">
+    - Test Edge TTS
+    - Test ElevenLabs TTS (if API key configured)
+    - Test read-aloud flow
+    - Verify audio playback
+  </AccordionItem>
+  
+  <AccordionItem title="Clipboard">
+    - Test clipboard read
+    - Test clipboard write
+    - Test concealed clipboard (passwords)
+  </AccordionItem>
+  
+  <AccordionItem title="AppleScript">
+    - Test script execution
+    - Verify Automation permission is granted
+    - Test selected text capture
+  </AccordionItem>
+</Accordion>
+
+### Testing AI Features
+
+<Steps>
+  <Step title="Configure AI Provider">
+    Set up API keys in Settings → AI:
+    - OpenAI API key
+    - Anthropic API key
+    - Ollama base URL
+  </Step>
+
+  <Step title="Test AI Chat">
+    - Launch AI chat mode
+    - Send a prompt
+    - Verify streaming works
+    - Test different models
+  </Step>
+
+  <Step title="Test AI in Extensions">
+    - Install extension that uses `AI.ask()`
+    - Test AI-powered features
+    - Check streaming responses
+    - Verify error handling
+  </Step>
+
+  <Step title="Test Memory Integration">
+    If Supermemory is configured:
+    - Test memory retrieval
+    - Test context injection
+    - Verify API calls work
+  </Step>
+</Steps>
+
+## Testing Extension Installation
+
+<Steps>
+  <Step title="Test Install Flow">
+    - Open extension store
+    - Search for an extension
+    - Click Install
+    - Verify extension appears in list
+  </Step>
+
+  <Step title="Test Extension Loading">
+    - Launch the installed extension
+    - Verify it loads without errors
+    - Check that preferences work
+  </Step>
+
+  <Step title="Test Update Flow">
+    - Check for extension updates
+    - Update an extension
+    - Verify new version loads
+  </Step>
+
+  <Step title="Test Uninstall">
+    - Uninstall an extension
+    - Verify it's removed from list
+    - Check that files are deleted
+  </Step>
+</Steps>
+
+## Debugging Common Issues
+
+### Extension Won't Load
+
+1. Open DevTools (`Cmd+Option+I`)
+2. Check console for errors
+3. Look for missing dependencies
+4. Verify esbuild bundling succeeded
+5. Check extension manifest is valid
+
+### IPC Calls Failing
+
+1. Check that handler exists in `main.ts`
+2. Verify channel name matches
+3. Check that `preload.ts` exposes the API
+4. Look for async/await issues
+
+### Native Features Not Working
+
+1. Check macOS permissions in System Settings → Privacy & Security
+2. Verify Swift binaries are compiled (`dist/native/`)
+3. Check that native binary is executable
+4. Look for permission prompts that were dismissed
+
+### API Compatibility Issues
+
+1. Check [CLAUDE.md](https://github.com/SuperCmdLabs/SuperCmd/blob/main/CLAUDE.md) for API implementation status
+2. Look for console warnings about missing APIs
+3. Verify API matches Raycast specification
+4. Test with official Raycast app for comparison
+
+## Performance Testing
+
+### Extension Performance
+
+- Test with extensions that have large datasets
+- Monitor memory usage in Activity Monitor
+- Check CPU usage during extension execution
+- Verify search/filtering performance
+
+### Build Performance
+
+```bash
+# Time the full build
+time npm run build
+
+# Check build output size
+du -sh dist/
+
+# Analyze bundle size (renderer)
+npm run build:renderer -- --mode analyze
+```
+
+## Test Coverage Goals
+
+<Warning>
+SuperCmd currently does not have automated test coverage. This is a goal for future development.
+</Warning>
+
+Future testing goals:
+
+- Unit tests for Raycast API implementations
+- Integration tests for extension loading
+- E2E tests for critical user flows
+- Performance benchmarks
+- Automated extension compatibility tests
+
+## Contributing Tests
+
+If you'd like to contribute to testing infrastructure:
+
+1. Check [GitHub Issues](https://github.com/SuperCmdLabs/SuperCmd/issues) for testing-related tasks
+2. Propose testing framework in [Discussions](https://github.com/SuperCmdLabs/SuperCmd/discussions)
+3. Submit PRs with test coverage
+4. Document testing patterns
+
+## Next Steps
+
+- Learn about [Contributing](./contributing) to SuperCmd
+- Understand [Code Organization](./code-organization)
+- Check [Troubleshooting](./troubleshooting) for common issues

@@ -1,0 +1,465 @@
+---
+title: 'Components'
+description: 'Visual UI components for building Raycast extension interfaces'
+icon: 'grid'
+---
+
+SuperCmd provides full compatibility with Raycast's core UI components. All components are fully implemented and support the complete Raycast API specification.
+
+## List
+
+<Card title="List Component" icon="list" href="#list">
+  Display a filterable list of items with optional details panel
+</Card>
+
+The `List` component displays a list of items with built-in search, filtering, keyboard navigation, and action support.
+
+### Props
+
+<ParamField path="children" type="React.ReactNode">
+  List.Item and List.Section components
+</ParamField>
+
+<ParamField path="searchBarPlaceholder" type="string">
+  Placeholder text for the search bar
+</ParamField>
+
+<ParamField path="onSearchTextChange" type="(text: string) => void">
+  Callback when search text changes. Enables controlled search.
+</ParamField>
+
+<ParamField path="searchText" type="string">
+  Controlled search text value
+</ParamField>
+
+<ParamField path="filtering" type="boolean" default="true">
+  Enable/disable built-in client-side filtering
+</ParamField>
+
+<ParamField path="isLoading" type="boolean">
+  Show loading state
+</ParamField>
+
+<ParamField path="isShowingDetail" type="boolean">
+  Show detail panel for selected item
+</ParamField>
+
+<ParamField path="navigationTitle" type="string">
+  Title shown in the footer
+</ParamField>
+
+<ParamField path="throttle" type="boolean">
+  Throttle search text changes (300ms debounce)
+</ParamField>
+
+<ParamField path="onSelectionChange" type="(id: string) => void">
+  Callback when selection changes
+</ParamField>
+
+### Example
+
+```tsx
+import { List } from '@raycast/api';
+
+export default function Command() {
+  return (
+    <List searchBarPlaceholder="Search items...">
+      <List.Item title="First Item" subtitle="Details" />
+      <List.Item title="Second Item" subtitle="More details" />
+    </List>
+  );
+}
+```
+
+### List.Item
+
+<ParamField path="id" type="string">
+  Unique identifier for the item
+</ParamField>
+
+<ParamField path="title" type="string | { value: string; tooltip?: string }" required>
+  Item title
+</ParamField>
+
+<ParamField path="subtitle" type="string | { value: string; tooltip?: string }">
+  Item subtitle
+</ParamField>
+
+<ParamField path="icon" type="Image.ImageLike">
+  Item icon (emoji, icon name, file path, or URL)
+</ParamField>
+
+<ParamField path="accessories" type="List.Item.Accessory[]">
+  Array of accessories shown on the right side
+</ParamField>
+
+<ParamField path="keywords" type="string[]">
+  Keywords for search filtering
+</ParamField>
+
+<ParamField path="detail" type="React.ReactElement<List.Item.Detail.Props>">
+  Detail panel content
+</ParamField>
+
+<ParamField path="actions" type="React.ReactElement<ActionPanel.Props>">
+  Action panel for this item
+</ParamField>
+
+### List.Item.Detail
+
+Detail panel shown when `isShowingDetail` is true.
+
+<ParamField path="markdown" type="string">
+  Markdown content to display
+</ParamField>
+
+<ParamField path="metadata" type="React.ReactElement<List.Item.Detail.Metadata.Props>">
+  Metadata sidebar
+</ParamField>
+
+### List.Section
+
+<ParamField path="title" type="string">
+  Section title
+</ParamField>
+
+<ParamField path="subtitle" type="string">
+  Section subtitle
+</ParamField>
+
+<ParamField path="children" type="React.ReactNode">
+  List.Item components
+</ParamField>
+
+---
+
+## Detail
+
+<Card title="Detail Component" icon="file-lines" href="#detail">
+  Display rich markdown content with optional metadata sidebar
+</Card>
+
+The `Detail` component displays markdown content with an optional metadata sidebar.
+
+### Props
+
+<ParamField path="markdown" type="string">
+  Markdown content to render
+</ParamField>
+
+<ParamField path="isLoading" type="boolean">
+  Show loading state
+</ParamField>
+
+<ParamField path="navigationTitle" type="string">
+  Title shown in the footer
+</ParamField>
+
+<ParamField path="actions" type="React.ReactElement<ActionPanel.Props>">
+  Action panel
+</ParamField>
+
+<ParamField path="metadata" type="React.ReactElement<Detail.Metadata.Props>">
+  Metadata sidebar
+</ParamField>
+
+### Example
+
+```tsx
+import { Detail } from '@raycast/api';
+
+export default function Command() {
+  const markdown = `
+# Hello World
+
+This is a **detail** view with *markdown* support.
+
+- List item 1
+- List item 2
+  `;
+
+  return (
+    <Detail 
+      markdown={markdown}
+      metadata={
+        <Detail.Metadata>
+          <Detail.Metadata.Label title="Status" text="Active" />
+          <Detail.Metadata.Separator />
+          <Detail.Metadata.Link title="Website" target="https://example.com" text="example.com" />
+        </Detail.Metadata>
+      }
+    />
+  );
+}
+```
+
+### Detail.Metadata
+
+Metadata sidebar components:
+
+- `Detail.Metadata.Label` - Display a label with text
+- `Detail.Metadata.Link` - Display a clickable link
+- `Detail.Metadata.TagList` - Display a list of tags
+- `Detail.Metadata.Separator` - Horizontal separator line
+
+---
+
+## Form
+
+<Card title="Form Component" icon="rectangle-list" href="#form">
+  Collect user input with various field types
+</Card>
+
+The `Form` component provides a way to collect user input with validation support.
+
+### Props
+
+<ParamField path="children" type="React.ReactNode">
+  Form field components
+</ParamField>
+
+<ParamField path="actions" type="React.ReactElement<ActionPanel.Props>">
+  Action panel
+</ParamField>
+
+<ParamField path="navigationTitle" type="string">
+  Title shown in the footer
+</ParamField>
+
+<ParamField path="isLoading" type="boolean">
+  Show loading state
+</ParamField>
+
+### Example
+
+```tsx
+import { Form, ActionPanel, Action } from '@raycast/api';
+
+export default function Command() {
+  return (
+    <Form
+      actions={
+        <ActionPanel>
+          <Action.SubmitForm title="Submit" onSubmit={(values) => console.log(values)} />
+        </ActionPanel>
+      }
+    >
+      <Form.TextField id="name" title="Name" placeholder="Enter name" />
+      <Form.TextArea id="description" title="Description" />
+      <Form.Dropdown id="priority" title="Priority">
+        <Form.Dropdown.Item value="high" title="High" />
+        <Form.Dropdown.Item value="medium" title="Medium" />
+        <Form.Dropdown.Item value="low" title="Low" />
+      </Form.Dropdown>
+      <Form.Checkbox id="notify" label="Send notification" />
+      <Form.DatePicker id="dueDate" title="Due Date" />
+    </Form>
+  );
+}
+```
+
+### Form Fields
+
+Available form field components:
+
+- `Form.TextField` - Single-line text input
+- `Form.TextArea` - Multi-line text input
+- `Form.Dropdown` - Dropdown selection
+- `Form.Checkbox` - Checkbox input
+- `Form.DatePicker` - Date/time picker
+- `Form.FilePicker` - File selection
+- `Form.PasswordField` - Password input
+- `Form.Separator` - Visual separator
+- `Form.Description` - Descriptive text
+
+All fields support:
+- `id` (string, required) - Field identifier
+- `title` (string) - Field label
+- `value` (any) - Controlled value
+- `onChange` (function) - Change callback
+- `error` (string) - Validation error message
+
+---
+
+## Grid
+
+<Card title="Grid Component" icon="grid-2" href="#grid">
+  Display items in a responsive grid layout
+</Card>
+
+The `Grid` component displays items in a grid layout with search and filtering.
+
+### Props
+
+<ParamField path="children" type="React.ReactNode">
+  Grid.Item and Grid.Section components
+</ParamField>
+
+<ParamField path="columns" type="number" default="5">
+  Number of columns
+</ParamField>
+
+<ParamField path="searchBarPlaceholder" type="string">
+  Placeholder text for search bar
+</ParamField>
+
+<ParamField path="isLoading" type="boolean">
+  Show loading state
+</ParamField>
+
+<ParamField path="filtering" type="boolean" default="true">
+  Enable built-in filtering
+</ParamField>
+
+### Example
+
+```tsx
+import { Grid } from '@raycast/api';
+
+export default function Command() {
+  return (
+    <Grid columns={4}>
+      <Grid.Item content="🎨" title="Art" />
+      <Grid.Item content="🎵" title="Music" />
+      <Grid.Item content="📚" title="Books" />
+    </Grid>
+  );
+}
+```
+
+### Grid.Item
+
+<ParamField path="content" type="Image.ImageLike" required>
+  Primary content (image, emoji, or icon)
+</ParamField>
+
+<ParamField path="title" type="string">
+  Item title
+</ParamField>
+
+<ParamField path="subtitle" type="string">
+  Item subtitle
+</ParamField>
+
+<ParamField path="actions" type="React.ReactElement<ActionPanel.Props>">
+  Action panel
+</ParamField>
+
+---
+
+## ActionPanel
+
+<Card title="ActionPanel & Actions" icon="bolt" href="#actionpanel">
+  Interactive actions triggered by keyboard shortcuts
+</Card>
+
+The `ActionPanel` contains actions that users can trigger with keyboard shortcuts.
+
+### Props
+
+<ParamField path="children" type="React.ReactNode">
+  Action components
+</ParamField>
+
+<ParamField path="title" type="string">
+  Panel title
+</ParamField>
+
+### Common Actions
+
+- `Action.Open` - Open URL or file
+- `Action.OpenInBrowser` - Open URL in browser
+- `Action.Push` - Navigate to new view
+- `Action.Pop` - Go back
+- `Action.CopyToClipboard` - Copy to clipboard
+- `Action.Paste` - Paste content
+- `Action.SubmitForm` - Submit form values
+- `Action.ShowInFinder` - Reveal file in Finder
+- `Action.Trash` - Move to trash
+
+### Example
+
+```tsx
+import { ActionPanel, Action, Detail } from '@raycast/api';
+
+export default function Command() {
+  return (
+    <Detail
+      markdown="Hello World"
+      actions={
+        <ActionPanel>
+          <Action.OpenInBrowser url="https://example.com" />
+          <Action.CopyToClipboard content="Hello World" />
+          <Action.Push title="Details" target={<Detail markdown="More info" />} />
+        </ActionPanel>
+      }
+    />
+  );
+}
+```
+
+---
+
+## MenuBarExtra
+
+<Card title="MenuBarExtra" icon="bars" href="#menubarextra">
+  Create menu bar extras (background extensions)
+</Card>
+
+The `MenuBarExtra` component creates menu bar extras that run in the background.
+
+### Props
+
+<ParamField path="title" type="string">
+  Menu bar title text
+</ParamField>
+
+<ParamField path="icon" type="Image.ImageLike">
+  Menu bar icon
+</ParamField>
+
+<ParamField path="tooltip" type="string">
+  Tooltip on hover
+</ParamField>
+
+<ParamField path="isLoading" type="boolean">
+  Show loading indicator
+</ParamField>
+
+### Example
+
+```tsx
+import { MenuBarExtra } from '@raycast/api';
+
+export default function Command() {
+  return (
+    <MenuBarExtra icon="⏱️" tooltip="Timer">
+      <MenuBarExtra.Item title="Start Timer" onAction={() => {}} />
+      <MenuBarExtra.Item title="Stop Timer" onAction={() => {}} />
+      <MenuBarExtra.Separator />
+      <MenuBarExtra.Submenu title="Presets">
+        <MenuBarExtra.Item title="5 minutes" />
+        <MenuBarExtra.Item title="10 minutes" />
+      </MenuBarExtra.Submenu>
+    </MenuBarExtra>
+  );
+}
+```
+
+### MenuBarExtra.Item
+
+<ParamField path="title" type="string" required>
+  Item title
+</ParamField>
+
+<ParamField path="icon" type="Image.ImageLike">
+  Item icon
+</ParamField>
+
+<ParamField path="onAction" type="() => void">
+  Click handler
+</ParamField>
+
+<ParamField path="shortcut" type="Keyboard.Shortcut">
+  Keyboard shortcut
+</ParamField>

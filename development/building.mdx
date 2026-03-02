@@ -1,0 +1,371 @@
+---
+title: Building & Packaging
+description: Build, package, and distribute SuperCmd
+---
+
+This guide covers all build commands, packaging options, and distribution workflows for SuperCmd.
+
+## Build Commands
+
+SuperCmd has several build scripts for different purposes:
+
+### Development Build
+
+```bash
+npm run dev
+```
+
+<Note>
+**What it does:**
+- Builds main process once with `npm run build:main`
+- Starts TypeScript watch for main process
+- Starts Vite dev server for renderer
+- Launches Electron app in development mode with DevTools
+</Note>
+
+Under the hood, this runs:
+```bash
+npm run build:main && \
+concurrently \
+  "npm run watch:main" \
+  "npm run dev:renderer" \
+  "npm run start:electron"
+```
+
+### Production Build
+
+```bash
+npm run build
+```
+
+Builds all components for production:
+
+<Steps>
+  <Step title="Build main process">
+    ```bash
+    npm run build:main
+    ```
+    
+    Compiles TypeScript in `src/main/` to JavaScript in `dist/main/` using `tsconfig.main.json`.
+  </Step>
+
+  <Step title="Build renderer">
+    ```bash
+    npm run build:renderer
+    ```
+    
+    Builds the React UI with Vite, outputting to `dist/renderer/`. Optimizes for production with minification and code splitting.
+  </Step>
+
+  <Step title="Build native modules">
+    ```bash
+    npm run build:native
+    ```
+    
+    Compiles Swift binaries to `dist/native/`. See details below.
+  </Step>
+</Steps>
+
+## Building Native Modules
+
+The native Swift modules are compiled separately:
+
+```bash
+npm run build:native
+```
+
+### What Gets Built
+
+<CodeGroup>
+```bash color-picker
+swiftc -O -o dist/native/color-picker \
+  src/native/color-picker.swift \
+  -framework AppKit
+```
+
+```bash snippet-expander
+swiftc -O -o dist/native/snippet-expander \
+  src/native/snippet-expander.swift \
+  -framework AppKit
+```
+
+```bash hotkey-hold-monitor
+swiftc -O -o dist/native/hotkey-hold-monitor \
+  src/native/hotkey-hold-monitor.swift \
+  -framework CoreGraphics \
+  -framework AppKit \
+  -framework Carbon
+```
+
+```bash speech-recognizer
+swiftc -O -o dist/native/speech-recognizer \
+  src/native/speech-recognizer.swift \
+  -framework Speech \
+  -framework AVFoundation
+```
+
+```bash microphone-access
+swiftc -O -o dist/native/microphone-access \
+  src/native/microphone-access.swift \
+  -framework AVFoundation
+```
+
+```bash input-monitoring-request
+swiftc -O -o dist/native/input-monitoring-request \
+  src/native/input-monitoring-request.swift \
+  -framework CoreGraphics
+```
+
+```bash window-adjust
+swiftc -O -o dist/native/window-adjust \
+  src/native/window-adjust.swift \
+  -framework ApplicationServices \
+  -framework AppKit
+```
+</CodeGroup>
+
+<Note>
+All native modules are compiled with `-O` (optimization) for production performance. They are unpacked from the ASAR archive at runtime (see `package.json:69`).
+</Note>
+
+## Packaging
+
+### Standard Package (Signed & Notarized)
+
+```bash
+npm run package
+```
+
+Builds and packages the app with code signing and notarization:
+
+- Sets `NODE_ENV=production`
+- Runs full production build
+- Packages with electron-builder
+- **Code signs** with identity `Shobhit Bhosure (T7HT4U4666)`
+- **Notarizes** with Apple (Team ID: `T7HT4U4666`)
+- Outputs to `out/` directory
+
+<Warning>
+This requires valid code signing certificates and Apple Developer credentials. If you don't have these, use the unsigned build.
+</Warning>
+
+### Unsigned Package (Development)
+
+```bash
+npm run package:unsigned
+```
+
+Builds and packages without code signing or notarization:
+
+- Sets `CSC_IDENTITY_AUTO_DISCOVERY=false`
+- Sets `-c.mac.identity=null`
+- Sets `-c.mac.notarize=false`
+- Useful for local testing and development
+
+## Build Configuration
+
+### electron-builder Settings
+
+Configured in `package.json` under the `build` key:
+
+```json
+{
+  "appId": "com.supercmd.app",
+  "productName": "SuperCmd",
+  "icon": "supercmd.icns",
+  "files": [
+    "dist/**/*",
+    "package.json"
+  ],
+  "asarUnpack": [
+    "dist/native/**",
+    "dist/main/window-manager-worker.js",
+    "node_modules/esbuild/**",
+    "node_modules/@esbuild/**",
+    "node_modules/node-edge-tts/**",
+    "node_modules/node-window-manager/**",
+    "node_modules/electron-liquid-glass/**"
+  ],
+  "directories": {
+    "output": "out"
+  }
+}
+```
+
+### ASAR Unpacking
+
+Certain files must be unpacked from the ASAR archive:
+
+- **Native modules** - Swift binaries in `dist/native/`
+- **Worker scripts** - `window-manager-worker.js`
+- **Binary dependencies** - esbuild, node-edge-tts, node-window-manager, electron-liquid-glass
+
+### macOS Configuration
+
+```json
+{
+  "mac": {
+    "category": "public.app-category.utilities",
+    "target": "dmg",
+    "hardenedRuntime": true,
+    "entitlements": "./entitlements.mac.plist",
+    "entitlementsInherit": "./entitlements.mac.plist"
+  }
+}
+```
+
+Entitlements include:
+- Camera usage description
+- Microphone usage description
+- Speech recognition usage description
+
+## Output Artifacts
+
+After running `npm run package`, you'll find artifacts in the `out/` directory:
+
+<CodeGroup>
+```text Apple Silicon (arm64)
+out/SuperCmd-1.0.5-arm64.dmg
+out/SuperCmd-1.0.5-arm64-mac.zip
+```
+
+```text Intel (x64)
+out/SuperCmd-1.0.5.dmg
+out/SuperCmd-1.0.5-mac.zip
+```
+</CodeGroup>
+
+### Distribution Formats
+
+- **DMG** - Drag-and-drop installer for macOS
+- **ZIP** - Compressed archive with the `.app` bundle
+
+## Auto-Updates
+
+SuperCmd includes electron-updater for automatic updates:
+
+```json
+{
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "SuperCmdLabs",
+      "repo": "SuperCmd",
+      "releaseType": "release"
+    }
+  ]
+}
+```
+
+Updates are pulled from GitHub releases automatically.
+
+## Build Process Details
+
+### TypeScript Compilation
+
+**Main Process:**
+- Uses `tsconfig.main.json`
+- Compiles `src/main/**/*.ts` to `dist/main/**/*.js`
+- Target: ES2020
+- Module: CommonJS
+
+**Renderer Process:**
+- Handled by Vite with `@vitejs/plugin-react`
+- Hot module replacement in dev mode
+- Optimized bundle in production
+- Outputs to `dist/renderer/`
+
+### Extension Bundling
+
+Extensions are bundled at runtime using esbuild:
+
+- Format: CommonJS
+- Bundles `@raycast/api` and `@raycast/utils` imports
+- Provides custom `require()` shim
+- See `src/main/extension-runner.ts:100`
+
+## Continuous Integration
+
+### Recommended CI Workflow
+
+```yaml
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Build native modules
+        run: npm run build:native
+      
+      - name: Build app
+        run: npm run build
+      
+      - name: Package app
+        run: npm run package:unsigned
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: SuperCmd-${{ runner.os }}
+          path: out/*.dmg
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Build fails with 'swiftc: command not found'">
+    Install Xcode Command Line Tools:
+    
+    ```bash
+    xcode-select --install
+    ```
+  </Accordion>
+
+  <Accordion title="Native modules missing after build">
+    Run `npm run build:native` explicitly before packaging:
+    
+    ```bash
+    npm run build:native && npm run package
+    ```
+  </Accordion>
+
+  <Accordion title="Electron builder fails with signing errors">
+    Use the unsigned build for local development:
+    
+    ```bash
+    npm run package:unsigned
+    ```
+  </Accordion>
+
+  <Accordion title="ASAR unpacking issues">
+    Ensure files that need filesystem access are listed in `asarUnpack` in `package.json:69-77`.
+  </Accordion>
+
+  <Accordion title="Build size is too large">
+    Check that dev dependencies aren't being bundled. Ensure they're in `devDependencies`, not `dependencies` in `package.json`.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+- Learn about the [project architecture](/development/architecture)
+- Set up your [development environment](/development/setup)
+- Read the [contribution guidelines](https://github.com/SuperCmdLabs/SuperCmd/blob/main/CONTRIBUTING.md)

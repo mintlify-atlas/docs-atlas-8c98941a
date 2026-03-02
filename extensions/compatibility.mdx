@@ -1,0 +1,502 @@
+---
+title: API Compatibility
+description: Raycast API implementation status in SuperCmd
+---
+
+SuperCmd aims for 100% compatibility with the Raycast API. This page tracks the implementation status of all `@raycast/api` and `@raycast/utils` features.
+
+## Core Components
+
+All major UI components are fully implemented:
+
+| Component | Status | Implementation |
+|-----------|--------|----------------|
+| `List` | ✅ Full | Filtering, pagination, accessories, `List.Item.Detail` with Metadata |
+| `Detail` | ✅ Full | Markdown rendering with Metadata (Label, Link, TagList, Separator) |
+| `Form` | ✅ Full | All field types, DatePicker.Type enum, FilePicker, LinkAccessory, enableDrafts |
+| `Grid` | ✅ Full | Grid.Fit/Inset enums, Section with aspectRatio/columns/fit/inset |
+| `ActionPanel` | ✅ Full | Submenu with filtering/isLoading/onOpen/shortcut |
+| `Action` | ✅ Full | All action types including Push (onPop), CopyToClipboard (concealed) |
+| `MenuBarExtra` | ✅ Full | Menu bar integration for background commands |
+
+<Note>
+  All components are implemented in `src/renderer/src/raycast-api/` using modular runtime files.
+</Note>
+
+## Navigation & Hooks
+
+### Navigation API
+
+| Hook | Status | Notes |
+|------|--------|-------|
+| `useNavigation` | ✅ Full | Push/pop navigation stack with `onPop` callbacks |
+
+### State Management Hooks
+
+| Hook | Status | Implementation |
+|------|--------|----------------|
+| `useCachedState` | ✅ Full | Persistent local state backed by localStorage |
+| `usePromise` | ✅ Full | Async execution lifecycle with mutate/revalidate |
+| `useCachedPromise` | ✅ Full | Promise caching with abortable, onWillExecute |
+| `useFetch` | ✅ Full | HTTP fetching with pagination, optimistic mutate |
+| `useForm` | ✅ Full | Form state with FormValidation enum |
+
+### System Integration Hooks
+
+| Hook | Status | Implementation |
+|------|--------|----------------|
+| `useExec` | ✅ Full | Command execution with stripFinalNewline, timeout |
+| `useSQL` | ✅ Full | SQLite queries with permissionView, full callbacks |
+| `useStreamJSON` | ✅ Full | Streaming JSON with filter/transform/dataPath/pageSize |
+| `useAI` | ✅ Full | AI streaming with onError/onData/onWillExecute |
+| `useFrecencySorting` | ✅ Full | Frecency sorting with localStorage persistence |
+| `useLocalStorage` | ✅ Full | Synchronized localStorage state with change events |
+
+## API Functions
+
+### UI Functions
+
+```typescript
+// All fully implemented
+showToast(options: Toast.Options): Promise<Toast>
+showHUD(message: string): Promise<void>
+confirmAlert(options: Alert.Options): Promise<boolean>
+```
+
+### Window Management
+
+```typescript
+// All fully implemented
+closeMainWindow(options?: { clearSearchBar?: boolean }): Promise<void>
+popToRoot(options?: { clearSearchBar?: boolean }): Promise<void>
+clearSearchBar(): Promise<void>
+```
+
+### System Integration
+
+| Function | Status | Notes |
+|----------|--------|-------|
+| `open` | ✅ Full | URLs and applications; supports `application` parameter |
+| `trash` | ✅ Full | File deletion through main process |
+| `showInFinder` | ✅ Full | Opens Finder at file path |
+| `getSelectedText` | ⚠️ Partial | May need macOS permissions |
+| `getSelectedFinderItems` | ⚠️ Partial | May need macOS permissions |
+| `getApplications` | ✅ Full | Application listing with optional directory filter |
+| `getDefaultApplication` | ✅ Full | Get default app for file path |
+| `getFrontmostApplication` | ✅ Full | Active app detection |
+
+<Warning>
+  `getSelectedText` and `getSelectedFinderItems` require macOS accessibility permissions. Users may need to grant these in System Settings.
+</Warning>
+
+### Extension Management
+
+```typescript
+// All fully implemented
+openExtensionPreferences(): Promise<void>
+openCommandPreferences(): Promise<void>
+updateCommandMetadata(options: { subtitle?: string; icon?: Image.ImageLike }): Promise<void>
+launchCommand(options: { name: string; type: LaunchType; ... }): Promise<void>
+getPreferenceValues<T>(): T
+```
+
+### Error Handling
+
+```typescript
+// Fully implemented
+captureException(error: Error | unknown): void  // Logs to console
+```
+
+## Storage & Caching
+
+### LocalStorage API
+
+```typescript
+// From index.tsx - Full implementation
+namespace LocalStorage {
+  export async function getItem<T>(key: string): Promise<T | undefined>
+  export async function setItem(key: string, value: any): Promise<void>
+  export async function removeItem(key: string): Promise<void>
+  export async function allItems<T>(): Promise<Record<string, T>>
+  export async function clear(): Promise<void>
+}
+```
+
+### Cache API
+
+```typescript
+// From index.tsx - Full implementation
+namespace Cache {
+  export async function get(key: string): Promise<string | undefined>
+  export async function set(key: string, value: string): Promise<void>
+  export async function remove(key: string): Promise<void>
+  export async function clear(): Promise<void>
+}
+```
+
+### Clipboard API
+
+```typescript
+// From index.tsx - Full implementation
+namespace Clipboard {
+  export async function readText(): Promise<string | undefined>
+  export async function read(): Promise<{ text?: string; file?: string }>
+  export async function copy(content: string | { text?: string; file?: string; ... }): Promise<void>
+  export async function paste(content: string | { text?: string; file?: string; ... }): Promise<void>
+  export async function clear(): Promise<void>
+}
+```
+
+## AI Integration
+
+### AI Namespace
+
+```typescript
+// From index.tsx - Full implementation
+namespace AI {
+  export async function ask(
+    prompt: string,
+    options?: {
+      model?: string;
+      creativity?: number | 'none' | 'low' | 'medium' | 'high' | 'maximum';
+      signal?: AbortSignal;
+    }
+  ): Promise<string>
+}
+```
+
+Supported backends:
+- **Ollama**: Local AI models
+- **OpenAI**: Cloud-based GPT models  
+- **Anthropic**: Claude models
+
+AI availability is checked via:
+
+```typescript
+environment.canAccess(AI)  // Returns boolean
+```
+
+## Environment API
+
+Full extension context is available:
+
+```typescript
+// From index.tsx
+interface Environment {
+  // Extension info
+  extensionName: string
+  commandName: string
+  commandMode: 'view' | 'menu-bar' | 'no-view'
+  
+  // Paths
+  assetsPath: string
+  supportPath: string
+  
+  // System info
+  raycastVersion: string  // Currently "1.80.0"
+  appearance: 'light' | 'dark'
+  theme: Theme
+  
+  // Feature detection
+  canAccess(api: any): boolean
+  
+  // Launch context
+  launchType: LaunchType
+  launchContext?: LaunchContext
+}
+```
+
+## Platform-Specific APIs
+
+### Window Management
+
+```typescript
+// From platform-runtime.ts - Full implementation
+namespace WindowManagement {
+  export async function getActiveWindow(): Promise<Window>
+  export async function getWindowsOnActiveDesktop(): Promise<Window[]>
+  export async function getDesktops(): Promise<Desktop[]>
+  export async function setWindowBounds(options: SetWindowBoundsOptions): Promise<void>
+  
+  export enum DesktopType {
+    User = 'user',
+    FullScreen = 'fullscreen',
+  }
+}
+```
+
+### AppleScript (macOS)
+
+```typescript
+// From utility-runtime.ts - Full implementation
+export async function runAppleScript(
+  script: string,
+  options?: { language?: 'AppleScript' | 'JavaScript'; humanReadableOutput?: boolean }
+): Promise<string>
+```
+
+### SQL Database
+
+```typescript
+// From platform-runtime.ts - Full implementation
+export async function executeSQL<T = unknown>(
+  databasePath: string,
+  query: string
+): Promise<T[]>
+```
+
+## Utility Functions
+
+### Favicon & Avatars
+
+```typescript
+// From utility-runtime.ts - Full implementation
+export function getFavicon(url: string, options?: { size?: number; fallback?: string }): string
+export function getAvatarIcon(name: string, options?: { gradient?: boolean }): Image.ImageLike
+export function getProgressIcon(progress: number, tintColor?: Color.ColorLike): Image.ImageLike
+```
+
+### Deeplinks
+
+```typescript
+// From misc-runtime.ts - Full implementation
+export function createDeeplink(options: {
+  type: DeeplinkType.Extension | DeeplinkType.ScriptCommand;
+  name: string;
+  arguments?: Record<string, any>;
+  context?: Record<string, any>;
+}): string
+```
+
+### Error Handling
+
+```typescript
+// From utility-runtime.ts - Full implementation
+export async function showFailureToast(
+  error: Error | unknown,
+  options?: { title?: string; primaryAction?: Action }
+): Promise<Toast>
+```
+
+### Caching
+
+```typescript
+// From platform-runtime.ts - Full implementation
+export function withCache<Fn extends (...args: any[]) => Promise<any>>(
+  fn: Fn,
+  options?: {
+    validate?: (data: Awaited<ReturnType<Fn>>) => boolean;
+    maxAge?: number;
+  }
+): Fn & { clearCache: () => void }
+```
+
+## Icon & Image System
+
+### Icon Enum
+
+Full Raycast icon mapping to Phosphor icons:
+
+```typescript
+// From icon-runtime-phosphor.tsx
+export enum Icon {
+  Circle,
+  Checkmark,
+  XMarkCircle,
+  ExclamationMark,
+  // ... 200+ icons mapped to Phosphor equivalents
+}
+```
+
+<Note>
+  See `src/renderer/src/raycast-api/raycast-icon-enum.ts` for the complete icon mapping (auto-generated).
+</Note>
+
+### Color Constants
+
+```typescript
+// From icon-runtime-render.tsx
+export enum Color {
+  PrimaryText,
+  SecondaryText,
+  Blue,
+  Green,
+  Orange,
+  Purple,
+  Red,
+  Yellow,
+  Magenta,
+  // ... all Raycast colors
+}
+```
+
+### Image Types
+
+```typescript
+// From icon-runtime-render.tsx
+namespace Image {
+  interface FileOptions { source: string }  // File path
+  interface UrlOptions { source: string; mask?: MaskType }  // URL with optional mask
+  interface AssetOptions { source: string; tintColor?: Color }  // Extension asset
+}
+```
+
+## Stub APIs (Planned)
+
+These APIs have typed stubs but need full implementation:
+
+### OAuth
+
+```typescript
+// From oauth/index.ts - Basic structure in place
+namespace OAuth {
+  class PKCEClient {
+    constructor(options: ClientOptions)
+    async getTokens(): Promise<TokenResponse | undefined>
+    async authorize(): Promise<TokenResponse>
+    async setTokens(tokens: TokenResponse): Promise<void>
+  }
+  
+  function withAccessToken<T>(
+    options: WithAccessTokenOptions
+  ): (Component: React.ComponentType<T>) => React.ComponentType<T>
+}
+```
+
+<Warning>
+  OAuth implementation is in progress. Basic PKCE flow is functional, but provider presets need testing.
+</Warning>
+
+### Browser Extension
+
+```typescript
+// From platform-runtime.ts - Stub only
+namespace BrowserExtension {
+  async function getContent(options?: ContentOptions): Promise<string>
+  async function getTabs(): Promise<Tab[]>
+}
+```
+
+<Note>
+  Browser extension integration requires a companion browser extension to be built. Currently returns empty defaults.
+</Note>
+
+## Platform Compatibility
+
+Extensions can declare platform support:
+
+```json
+{
+  "platforms": ["macOS", "Windows", "Linux"]
+}
+```
+
+SuperCmd filters extensions based on the current platform:
+
+```typescript
+// From extension-platform.ts:38-42
+export function isManifestPlatformCompatible(manifest: any): boolean {
+  const supported = getManifestPlatforms(manifest);
+  if (supported.length === 0) return true;  // No platform restriction
+  return supported.includes(getCurrentRaycastPlatform());
+}
+```
+
+## TypeScript Support
+
+Full TypeScript type definitions are provided:
+
+```typescript
+// Type exports
+export type {
+  Preferences,
+  PreferenceValues,
+  Preference,
+  LaunchContext,
+  LaunchProps,
+  LaunchOptions,
+  Application,
+  FileSystemItem,
+}
+
+export enum LaunchType {
+  UserInitiated = 'userInitiated',
+  Background = 'background',
+}
+
+export enum PopToRootType {
+  Default = 'default',
+  Immediate = 'immediate',
+  Suspended = 'suspended',
+}
+```
+
+## Testing Extensions
+
+To verify an extension's compatibility:
+
+<Steps>
+  <Step title="Check Platform Support">
+    Verify the extension's `platforms` field in `package.json` includes your OS
+  </Step>
+  
+  <Step title="Review Dependencies">
+    Check if the extension uses any APIs marked as "Stub" or "Partial" above
+  </Step>
+  
+  <Step title="Install and Test">
+    Install the extension and test all commands to ensure they work as expected
+  </Step>
+  
+  <Step title="Report Issues">
+    If you encounter incompatibilities, check the extension's API usage and report issues with specific API calls that fail
+  </Step>
+</Steps>
+
+## API Version Tracking
+
+- **Current Raycast Version**: `1.80.0` (tracked in `environment.raycastVersion`)
+- **API Reference**: [Raycast API Documentation](https://developers.raycast.com/api-reference/)
+- **Extension Store**: [Raycast Extensions](https://www.raycast.com/store)
+
+<Note>
+  SuperCmd monitors Raycast releases for API changes and updates the compatibility layer accordingly.
+</Note>
+
+## Contributing
+
+When adding new API support:
+
+<Steps>
+  <Step title="Reference Official Docs">
+    Check [Raycast API Reference](https://developers.raycast.com/api-reference/) for official behavior
+  </Step>
+  
+  <Step title="Implement in Runtime Modules">
+    Add the API to the appropriate runtime file in `src/renderer/src/raycast-api/`
+  </Step>
+  
+  <Step title="Add IPC Handlers if Needed">
+    For system operations, add handlers in `src/main/main.ts` and `src/main/preload.ts`
+  </Step>
+  
+  <Step title="Test with Real Extensions">
+    Verify compatibility with actual Raycast extensions from the store
+  </Step>
+  
+  <Step title="Update Documentation">
+    Mark the API as implemented in `CLAUDE.md` and this compatibility page
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Overview" icon="book-open" href="/extensions/overview">
+    Learn how extensions work in SuperCmd
+  </Card>
+  
+  <Card title="Installing" icon="download" href="/extensions/installing">
+    Install and update extensions
+  </Card>
+</CardGroup>

@@ -1,0 +1,326 @@
+---
+title: "Installation"
+description: "Download, install, and configure SuperCmd on macOS"
+---
+
+## Download SuperCmd
+
+SuperCmd is currently available for **macOS only** (both Apple Silicon and Intel).
+
+<CardGroup cols={2}>
+  <Card
+    title="Apple Silicon (M1/M2/M3/M4)"
+    icon="apple"
+    href="https://github.com/SuperCmdLabs/SuperCmd/releases/latest"
+  >
+    Download `SuperCmd-x.x.x-arm64.dmg`
+  </Card>
+  <Card
+    title="Intel Mac"
+    icon="microchip"
+    href="https://github.com/SuperCmdLabs/SuperCmd/releases/latest"
+  >
+    Download `SuperCmd-x.x.x.dmg`
+  </Card>
+</CardGroup>
+
+<Note>
+  **Latest version:** v1.0.5 — Check the [releases page](https://github.com/SuperCmdLabs/SuperCmd/releases/latest) for the most recent build.
+</Note>
+
+## Install the App
+
+<Steps>
+  <Step title="Open the DMG file">
+    Double-click the downloaded `.dmg` file to mount the disk image.
+  </Step>
+
+  <Step title="Drag to Applications">
+    Drag the **SuperCmd** app icon into your **Applications** folder.
+
+    <img src="/images/install-drag.png" alt="Drag to Applications" />
+  </Step>
+
+  <Step title="Launch SuperCmd">
+    Open **SuperCmd** from your Applications folder or Spotlight.
+  </Step>
+</Steps>
+
+## Handle macOS Security Warnings
+
+On **first launch**, macOS may display a security warning because SuperCmd is not notarized by Apple (yet).
+
+<Warning>
+  **"SuperCmd cannot be opened because it is from an unidentified developer"**
+
+  This is expected for open-source apps distributed outside the Mac App Store.
+</Warning>
+
+### How to bypass the warning
+
+<Steps>
+  <Step title="Open System Settings">
+    Go to **System Settings** → **Privacy & Security**
+  </Step>
+
+  <Step title="Find the blocked app">
+    Scroll down to the **Security** section. You should see:
+
+    > "SuperCmd was blocked from use because it is not from an identified developer."
+  </Step>
+
+  <Step title="Click 'Open Anyway'">
+    Click the **Open Anyway** button next to the message.
+
+    You may need to authenticate with Touch ID or your password.
+  </Step>
+
+  <Step title="Confirm">
+    Click **Open** in the confirmation dialog.
+  </Step>
+</Steps>
+
+<Tip>
+  You only need to do this **once**. After the first launch, macOS will remember your choice.
+</Tip>
+
+## Grant Required Permissions
+
+SuperCmd needs several macOS permissions to function properly. The app will prompt you on first use, or you can enable them manually.
+
+### Required Permissions
+
+<AccordionGroup>
+  <Accordion icon="universal-access" title="Accessibility (Required)">
+    **Why:** Enables window management, keystroke injection for snippet expansion
+
+    **Required for:**
+    - Window tiling and positioning
+    - Snippet expansion
+    - Script commands that manipulate windows
+
+    **How to enable:**
+    1. Open **System Settings** → **Privacy & Security** → **Accessibility**
+    2. Find **SuperCmd** in the list
+    3. Toggle it **on**
+    4. Restart SuperCmd
+
+    <Note>
+      If SuperCmd is not in the list, click the **+** button and navigate to `/Applications/SuperCmd.app`.
+    </Note>
+  </Accordion>
+
+  <Accordion icon="keyboard" title="Input Monitoring (Required)">
+    **Why:** Detects global hotkeys (launcher shortcut, hold-to-speak)
+
+    **Required for:**
+    - Core launcher functionality (default: `Cmd + Space`)
+    - Voice input hotkey (hold to speak)
+    - Custom keyboard shortcuts
+
+    **How to enable:**
+    1. Open **System Settings** → **Privacy & Security** → **Input Monitoring**
+    2. Find **SuperCmd** in the list
+    3. Toggle it **on**
+    4. Restart SuperCmd
+
+    <Warning>
+      Without this permission, the launcher **will not respond** to keyboard shortcuts.
+    </Warning>
+  </Accordion>
+
+  <Accordion icon="microphone" title="Microphone (Optional)">
+    **Why:** Voice dictation (speech-to-text)
+
+    **Required for:**
+    - Hold-to-speak voice input
+    - Voice commands
+    - Wispr Flow-style dictation
+
+    **How to enable:**
+    1. Open **System Settings** → **Privacy & Security** → **Microphone**
+    2. Find **SuperCmd** in the list
+    3. Toggle it **on**
+
+    <Tip>
+      Only required if you plan to use voice features. You can skip this if you prefer keyboard-only input.
+    </Tip>
+  </Accordion>
+
+  <Accordion icon="terminal" title="Automation (AppleScript) (Optional)">
+    **Why:** Selected text capture, system automation, extension actions
+
+    **Required for:**
+    - Capturing selected text from other apps
+    - Running AppleScript-based extensions
+    - Automating macOS system features
+
+    **How to enable:**
+    1. Open **System Settings** → **Privacy & Security** → **Automation**
+    2. Find **SuperCmd** in the list
+    3. Enable automation for the apps you want SuperCmd to control (e.g., Finder, Safari)
+
+    <Note>
+      SuperCmd will prompt you for automation access when you first try to use a feature that requires it.
+    </Note>
+  </Accordion>
+</AccordionGroup>
+
+### Permission Summary Table
+
+| Permission | Status | Why | Required for |
+|-----------|--------|-----|-------------|
+| **Accessibility** | Required | Window management, keystroke injection | Window tiling, snippet expansion |
+| **Input Monitoring** | Required | Global hotkey detection | Core launcher functionality |
+| **Microphone** | Optional | Voice dictation (speech-to-text) | Voice features |
+| **Automation** | Optional | Selected text capture, system automation | Extension actions |
+
+<Warning>
+  **Important:** You may need to **restart SuperCmd** after granting permissions for changes to take effect.
+</Warning>
+
+## First Launch Configuration
+
+<Steps>
+  <Step title="Open SuperCmd">
+    Press `Cmd + Space` (default hotkey) or click the menu bar icon.
+  </Step>
+
+  <Step title="Complete the onboarding">
+    SuperCmd will guide you through:
+    - Setting your preferred hotkey
+    - Granting necessary permissions
+    - Choosing default settings
+  </Step>
+
+  <Step title="Test the launcher">
+    Type a command to search:
+    - Applications (e.g., "Safari", "Chrome")
+    - System preferences
+    - Built-in commands
+  </Step>
+</Steps>
+
+## Auto-Updates
+
+SuperCmd includes a **built-in auto-updater** powered by `electron-updater`.
+
+<CardGroup cols={2}>
+  <Card title="Automatic Updates" icon="download">
+    SuperCmd checks for updates on launch and downloads them in the background.
+  </Card>
+  <Card title="Manual Check" icon="rotate">
+    Search for "Check for Updates" in the launcher to manually check.
+  </Card>
+</CardGroup>
+
+<Tip>
+  Updates are downloaded and installed automatically. You'll be prompted to restart when a new version is ready.
+</Tip>
+
+## Verify Installation
+
+To confirm SuperCmd is installed correctly:
+
+<Steps>
+  <Step title="Check the version">
+    Open SuperCmd and search for **"About SuperCmd"**
+
+    You should see version **1.0.5** (or later).
+  </Step>
+
+  <Step title="Test permissions">
+    - Press your global hotkey (`Cmd + Space`) — the launcher should appear
+    - Try typing a command — results should filter as you type
+    - Open Settings → check that all permissions show as granted
+  </Step>
+
+  <Step title="Install a test extension">
+    Search for **"Store"** in the launcher, browse available extensions, and install one to verify the extension runtime works.
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Launcher doesn't open with keyboard shortcut">
+    **Solution:**
+    1. Check that **Input Monitoring** permission is enabled
+    2. Restart SuperCmd
+    3. Try changing the global hotkey in Settings → General
+    4. Make sure no other app is using the same shortcut (e.g., Spotlight, Raycast)
+  </Accordion>
+
+  <Accordion title="Window management doesn't work">
+    **Solution:**
+    1. Verify **Accessibility** permission is granted
+    2. The Swift binary `window-adjust.swift` checks `AXIsProcessTrusted()`
+    3. Restart SuperCmd after enabling Accessibility
+  </Accordion>
+
+  <Accordion title="Extensions fail to install">
+    **Solution:**
+    1. Verify **Homebrew** is installed (`brew --version`)
+    2. SuperCmd uses Homebrew-resolved `git` to clone extensions from GitHub
+    3. Check your internet connection
+    4. Try manually running: `git clone https://github.com/raycast/extensions.git`
+  </Accordion>
+
+  <Accordion title="Voice input not working">
+    **Solution:**
+    1. Grant **Microphone** permission
+    2. Check that your microphone is working in other apps
+    3. Verify the microphone is selected in System Settings → Sound → Input
+  </Accordion>
+
+  <Accordion title="App crashes on launch">
+    **Solution:**
+    1. Check the logs: `~/Library/Logs/SuperCmd/main.log`
+    2. Try deleting settings: `rm -rf ~/Library/Application\ Support/SuperCmd/`
+    3. Reinstall SuperCmd from a fresh download
+    4. Report the issue on [GitHub Issues](https://github.com/SuperCmdLabs/SuperCmd/issues)
+  </Accordion>
+</AccordionGroup>
+
+<Card
+  title="Still having issues?"
+  icon="life-ring"
+  href="https://discord.gg/CsdbknHqx5"
+>
+  Join our Discord community for real-time support
+</Card>
+
+## Next Steps
+
+Now that SuperCmd is installed, learn the basics:
+
+<CardGroup cols={2}>
+  <Card
+    title="Quick Start Guide"
+    icon="bolt"
+    href="/quickstart"
+  >
+    Run your first command and explore core features
+  </Card>
+  <Card
+    title="Configure AI Providers"
+    icon="brain"
+    href="/configuration/ai-providers"
+  >
+    Set up OpenAI, Claude, or Ollama
+  </Card>
+  <Card
+    title="Install Extensions"
+    icon="puzzle-piece"
+    href="/extensions/installing"
+  >
+    Browse and install Raycast extensions
+  </Card>
+  <Card
+    title="Customize Hotkeys"
+    icon="keyboard"
+    href="/configuration/hotkeys"
+  >
+    Set up your preferred keyboard shortcuts
+  </Card>
+</CardGroup>

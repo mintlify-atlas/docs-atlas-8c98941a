@@ -1,0 +1,546 @@
+---
+title: Snippet Expansion
+description: Create and expand text snippets with dynamic placeholders
+icon: bolt
+---
+
+SuperCmd's snippet system lets you create reusable text templates with dynamic placeholders for dates, clipboard content, and custom variables.
+
+## Overview
+
+Snippets in SuperCmd provide:
+
+- **Quick text expansion** - Type keyword, get full text
+- **Dynamic placeholders** - Insert current date, time, clipboard, etc.
+- **Custom variables** - Prompt for user input when expanding
+- **Import/Export** - Share snippets or backup
+- **Search & organize** - Pin favorites, search by name/content
+
+<Info>
+  Snippets are stored in `~/Library/Application Support/SuperCmd/snippets/snippets.json` and sync automatically.
+</Info>
+
+## Quick Start
+
+<Steps>
+  <Step title="Open Snippet Manager">
+    Press SuperCmd hotkey, search for "Snippet Manager" or use `Cmd+Shift+S`.
+  </Step>
+  
+  <Step title="Create Snippet">
+    Click **Create New** or press `Cmd+N`.
+  </Step>
+  
+  <Step title="Set Name & Content">
+    - **Name**: Display name (e.g., "Email Signature")
+    - **Keyword**: Optional trigger (e.g., "sig")
+    - **Content**: Your text with optional placeholders
+  </Step>
+  
+  <Step title="Use Snippet">
+    In Snippet Manager, select snippet and press `Enter` to copy, or `Cmd+Enter` to paste directly.
+  </Step>
+</Steps>
+
+## Snippet Manager UI
+
+Implemented in `src/renderer/src/SnippetManager.tsx`:
+
+### Views
+
+<Tabs>
+  <Tab title="Search View">
+    **40/60 split layout:**
+    - Left: Snippet list with search
+    - Right: Live preview with placeholder resolution
+    
+    Actions: Copy, Edit, Delete, Duplicate, Pin
+  </Tab>
+  
+  <Tab title="Create/Edit View">
+    **Form interface:**
+    - Name field
+    - Keyword field (optional, for quick expansion)
+    - Content editor with placeholder insertion
+    - Preview panel showing resolved output
+    
+    Toolbar: Insert placeholders, Save, Cancel
+  </Tab>
+</Tabs>
+
+### Snippet Organization
+
+Snippets are sorted automatically (src/main/snippet-store.ts:101):
+
+```typescript
+function getAllSnippets(): Snippet[] {
+  return snippets.sort((a, b) => {
+    // Pinned snippets first
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+    
+    // Then by last updated (newest first)
+    return b.updatedAt - a.updatedAt;
+  });
+}
+```
+
+## Placeholders
+
+Dynamic content insertion:
+
+### Built-in Placeholders
+
+| Placeholder | Output | Example |
+|-------------|--------|----------|
+| `{clipboard}` | Current clipboard text | "Hello, world!" |
+| `{date}` | Current date (locale format) | "3/2/2026" |
+| `{time}` | Current time (locale format) | "2:30 PM" |
+| `{date:YYYY-MM-DD}` | Formatted date | "2026-03-02" |
+| `{time:HH:mm:ss}` | Formatted time | "14:30:00" |
+| `{random:UUID}` | Random UUID v4 | "a3bb189e-8bf9-..." |
+| `{cursor-position}` | Empty (marks cursor position) | - |
+
+### Date/Time Formatting
+
+Supported format tokens (src/main/snippet-store.ts:308):
+
+```typescript
+function formatDate(date: Date, format: string): string {
+  // YYYY - 4-digit year (2026)
+  // MM   - 2-digit month (03)
+  // DD   - 2-digit day (02)
+  // HH   - 24-hour (14)
+  // mm   - Minutes (30)
+  // ss   - Seconds (45)
+}
+```
+
+**Examples:**
+- `{date:YYYY-MM-DD}` → "2026-03-02"
+- `{date:MM/DD/YYYY}` → "03/02/2026"
+- `{time:HH:mm}` → "14:30"
+- `{date:YYYY-MM-DD HH:mm:ss}` → "2026-03-02 14:30:45"
+
+### Custom Variables (Arguments)
+
+Prompt for user input when expanding:
+
+```
+Hello {argument name="Name"},
+
+Your order #{argument:OrderID default="12345"} is ready.
+
+Thank you!
+```
+
+When expanded, SuperCmd prompts:
+- "Name" field (required)
+- "OrderID" field (defaults to "12345")
+
+After filling in values, the snippet expands:
+
+```
+Hello John,
+
+Your order #67890 is ready.
+
+Thank you!
+```
+
+### Argument Syntax (src/renderer/src/SnippetManager.tsx:35)
+
+```typescript
+// Full syntax
+{argument name="FieldName" default="DefaultValue"}
+
+// Short syntax
+{argument:FieldName}
+
+// Examples:
+{argument name="Email"}                    // Required field
+{argument name="Country" default="USA"}    // Optional with default
+{argument:FirstName}                       // Short form
+```
+
+<Tip>
+  Arguments are extracted and sorted for the prompt. The same argument name can appear multiple times in the snippet.
+</Tip>
+
+## Snippet Keywords
+
+Optional trigger phrases for quick expansion:
+
+### Setting Keywords
+
+1. Edit snippet
+2. Set **Keyword** field (e.g., "addr")
+3. Save snippet
+
+### Using Keywords
+
+Currently, keywords are used for searching in Snippet Manager. Future versions will support inline expansion (type keyword → snippet expands).
+
+### Keyword Rules
+
+Invalid characters are rejected (src/main/snippet-store.ts:27):
+
+```typescript
+const INVALID_SNIPPET_KEYWORD_CHARS = /["'`]/;
+
+if (INVALID_SNIPPET_KEYWORD_CHARS.test(keyword)) {
+  throw new Error('Snippet keyword cannot include ", \', or ` characters.');
+}
+```
+
+<Warning>
+  Keywords cannot contain quotes (", ', `) to prevent parsing issues.
+</Warning>
+
+## Import & Export
+
+### Exporting Snippets
+
+<Steps>
+  <Step title="Open Snippet Manager">
+    Navigate to the Snippet Manager view.
+  </Step>
+  
+  <Step title="Export Action">
+    Click the menu icon and select **Export Snippets**.
+  </Step>
+  
+  <Step title="Save File">
+    Choose location and save as `snippets.json`.
+  </Step>
+</Steps>
+
+### Export Format (src/main/snippet-store.ts:352)
+
+```json
+{
+  "version": 1,
+  "app": "SuperCmd",
+  "type": "snippets",
+  "exportedAt": "2026-03-02T14:30:00.000Z",
+  "snippets": [
+    {
+      "name": "Email Signature",
+      "content": "Best,\n{argument:Name}\n{argument:Title}",
+      "keyword": "sig",
+      "pinned": false
+    }
+  ]
+}
+```
+
+### Importing Snippets
+
+<Steps>
+  <Step title="Import Action">
+    Click menu icon > **Import Snippets**.
+  </Step>
+  
+  <Step title="Select File">
+    Choose a `snippets.json` file (SuperCmd or Raycast format).
+  </Step>
+  
+  <Step title="Review Results">
+    Toast shows: "Imported X snippets, skipped Y duplicates".
+  </Step>
+</Steps>
+
+### Import Deduplication (src/main/snippet-store.ts:439)
+
+```typescript
+for (const item of snippetsToImport) {
+  // Skip if duplicate by name (case-insensitive)
+  const exists = snippets.some((s) => 
+    s.name.toLowerCase() === item.name.toLowerCase()
+  );
+  
+  // Or skip if duplicate by keyword
+  const exists = snippets.some((s) =>
+    s.keyword && item.keyword && 
+    s.keyword.toLowerCase() === item.keyword.toLowerCase()
+  );
+}
+```
+
+<Note>
+  Duplicate snippets (by name or keyword) are skipped during import to prevent conflicts.
+</Note>
+
+### Raycast Compatibility
+
+SuperCmd can import Raycast snippet exports (src/main/snippet-store.ts:423):
+
+```typescript
+// Raycast uses "text" field, SuperCmd uses "content"
+const content = item.content ?? item.text ?? '';
+```
+
+Both formats are supported automatically.
+
+## Snippet Actions
+
+Available operations:
+
+| Action | Shortcut | Description |
+|--------|----------|-------------|
+| Copy to Clipboard | `Enter` | Resolve placeholders and copy |
+| Paste Directly | `Cmd+Enter` | Copy and paste to frontmost app |
+| Edit Snippet | `Cmd+E` | Open edit view |
+| Duplicate | `Cmd+D` | Create copy of snippet |
+| Pin/Unpin | `Cmd+P` | Pin to top of list |
+| Delete | `Cmd+Delete` | Remove snippet |
+| Clear All | `Cmd+Shift+Delete` | Delete all snippets |
+
+## Placeholder Resolution
+
+Processing pipeline (src/main/snippet-store.ts:261):
+
+### Resolution Order
+
+1. **Extract arguments** - Find all `{argument:...}` placeholders
+2. **Prompt user** - If arguments exist, show input form
+3. **Resolve placeholders**:
+   - Replace `{argument:X}` with user input
+   - Replace `{clipboard}` with current clipboard
+   - Replace `{date}` / `{time}` with current date/time
+   - Replace `{random:UUID}` with generated UUID
+4. **Return final text**
+
+### Example Resolution
+
+Snippet:
+```
+Meeting Notes - {date:YYYY-MM-DD}
+
+Attendees: {argument:Attendees}
+Topic: {clipboard}
+
+Action Items:
+- 
+```
+
+With inputs:
+- Attendees: "Alice, Bob"
+- Clipboard: "Q1 Planning"
+- Current date: 2026-03-02
+
+Resolved:
+```
+Meeting Notes - 2026-03-02
+
+Attendees: Alice, Bob
+Topic: Q1 Planning
+
+Action Items:
+- 
+```
+
+## Inline Argument Fields
+
+When a snippet has 3 or fewer arguments, they appear inline in the snippet list (src/renderer/src/SnippetManager.tsx:33):
+
+```typescript
+const MAX_INLINE_SNIPPET_ARGUMENTS = 3;
+
+// If snippet has ≤3 arguments:
+// - Show input fields directly in list
+// - Press Enter to expand with filled values
+// - No separate prompt dialog
+```
+
+<Tip>
+  Keep arguments to 3 or fewer for the best inline expansion experience.
+</Tip>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Descriptive Names" icon="tag">
+    Name snippets clearly: "Email Signature" not "sig1"
+  </Card>
+  
+  <Card title="Set Keywords" icon="keyboard">
+    Add keywords for frequently used snippets
+  </Card>
+  
+  <Card title="Pin Favorites" icon="thumbtack">
+    Pin your most-used snippets to the top
+  </Card>
+  
+  <Card title="Test Placeholders" icon="flask">
+    Preview snippets before saving to verify placeholders
+  </Card>
+</CardGroup>
+
+## Common Use Cases
+
+### Email Templates
+
+```
+Hi {argument:Name},
+
+Thank you for reaching out. I'll get back to you by {date:MM/DD/YYYY}.
+
+Best,
+{argument name="Your Name" default="John Doe"}
+```
+
+### Code Snippets
+
+```
+// TODO({argument:Author}): {clipboard}
+// Created: {date:YYYY-MM-DD}
+// Priority: {argument name="Priority" default="Medium"}
+```
+
+### Meeting Notes
+
+```
+# Meeting - {date:YYYY-MM-DD}
+
+## Attendees
+{argument:Attendees}
+
+## Agenda
+{clipboard}
+
+## Notes
+
+
+## Action Items
+- [ ] 
+```
+
+### Bug Report Template
+
+```
+**Bug ID:** {random:UUID}
+**Date:** {date:YYYY-MM-DD HH:mm}
+**Reporter:** {argument:Reporter}
+
+**Description:**
+{clipboard}
+
+**Steps to Reproduce:**
+1. 
+
+**Expected:** 
+**Actual:** 
+```
+
+## Keyboard Shortcuts
+
+| Action | Shortcut |
+|--------|----------|
+| Open Snippet Manager | `Cmd+Shift+S` |
+| Create New | `Cmd+N` |
+| Search | `Cmd+F` |
+| Edit Selected | `Cmd+E` |
+| Duplicate | `Cmd+D` |
+| Pin/Unpin | `Cmd+P` |
+| Copy Snippet | `Enter` |
+| Paste Snippet | `Cmd+Enter` |
+| Delete | `Cmd+Delete` |
+| Save (in edit view) | `Cmd+S` |
+| Cancel (in edit view) | `Escape` |
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Placeholders not resolving">
+    - Check placeholder syntax: `{date}` not `{Date}`
+    - Verify format string: `{date:YYYY-MM-DD}` not `{date:yyyy-mm-dd}`
+    - For arguments: use `{argument:Name}` not `{Name}`
+    - Preview snippet before saving to test
+  </Accordion>
+  
+  <Accordion title="Import failed">
+    - Verify JSON format is valid
+    - Check file has "snippets" array
+    - Ensure no duplicate names/keywords with existing snippets
+    - Try exporting a snippet first to see correct format
+  </Accordion>
+  
+  <Accordion title="Snippet not appearing in list">
+    - Check search query isn't filtering it out
+    - Verify snippet was saved (check edit view)
+    - Look for the snippet in All filter (not type-specific)
+    - Restart Snippet Manager
+  </Accordion>
+  
+  <Accordion title="Arguments not prompting">
+    - Verify syntax: `{argument name="Field"}`
+    - Check no invalid characters in argument name
+    - Ensure snippet content includes the placeholder
+    - Try removing and re-adding the argument
+  </Accordion>
+</AccordionGroup>
+
+## Performance
+
+### Search Performance
+
+Snippet search is fast even with hundreds of snippets (src/main/snippet-store.ts:111):
+
+```typescript
+export function searchSnippets(query: string): Snippet[] {
+  const lowerQuery = query.toLowerCase();
+  return snippets.filter((s) => 
+    s.name.toLowerCase().includes(lowerQuery) ||
+    s.content.toLowerCase().includes(lowerQuery) ||
+    (s.keyword && s.keyword.toLowerCase().includes(lowerQuery))
+  );
+}
+```
+
+### Storage
+
+- **JSON format**: Human-readable, easy to backup
+- **File size**: ~1KB per snippet
+- **1000 snippets**: ~1MB file size
+- **Load time**: Less than 50ms on app startup
+
+## Advanced Features
+
+### Nested Placeholders
+
+Placeholders can reference each other:
+
+```
+Report for {date:YYYY-MM-DD}
+Generated at {time:HH:mm:ss}
+ID: {random:UUID}
+
+Author: {argument:Author}
+Data: {clipboard}
+```
+
+### Multi-line Arguments
+
+Arguments support multi-line input:
+
+```
+{argument name="Meeting Notes" default="No notes provided"}
+```
+
+When prompted, text area allows line breaks.
+
+### Preview with Highlighting
+
+Preview panel highlights resolved placeholders (src/renderer/src/SnippetManager.tsx:64):
+
+```typescript
+function renderSnippetPreviewWithHighlights(content, values) {
+  // Argument values shown in emerald color
+  // Other placeholders in muted color
+  // Static text in default color
+}
+```
+
+<Tip>
+  Use the preview panel to verify your snippet resolves correctly before copying.
+</Tip>

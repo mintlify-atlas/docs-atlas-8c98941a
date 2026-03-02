@@ -1,0 +1,704 @@
+---
+title: Raycast API Compatibility
+description: Complete reference for SuperCmd's @raycast/api and @raycast/utils implementation
+---
+
+## Overview
+
+SuperCmd provides a comprehensive compatibility layer that implements the entire Raycast API surface. This allows existing Raycast extensions to run without modification while enabling SuperCmd-specific enhancements.
+
+<Note>
+The API shim lives in `src/renderer/src/raycast-api/` and is split into focused runtime modules for maintainability. The `index.tsx` file serves as the integration surface that wires everything together.
+</Note>
+
+## Architecture
+
+The Raycast API implementation follows a modular architecture:
+
+```
+raycast-api/
+├── index.tsx                  # Main export surface
+├── action-runtime*.tsx        # Action & ActionPanel
+├── list-runtime*.tsx          # List component
+├── form-runtime*.tsx          # Form component
+├── grid-runtime*.tsx          # Grid component
+├── detail-runtime.tsx         # Detail component
+├── menubar-runtime*.tsx       # MenuBarExtra
+├── icon-runtime*.tsx          # Icon system
+├── hooks/                     # @raycast/utils hooks
+└── oauth/                     # OAuth implementation
+```
+
+## Core Exports
+
+### Components
+
+All major Raycast components are fully implemented:
+
+<Tabs>
+  <Tab title="List">
+    ```typescript
+    import { List } from '@raycast/api';
+    
+    export default function Command() {
+      return (
+        <List>
+          <List.Item
+            title="Item 1"
+            accessories={[
+              { text: 'Badge' },
+              { icon: Icon.Star }
+            ]}
+            actions={
+              <ActionPanel>
+                <Action.OpenInBrowser url="https://example.com" />
+              </ActionPanel>
+            }
+          />
+        </List>
+      );
+    }
+    ```
+    
+    **Features:**
+    - Filtering with `onSearchTextChange`
+    - Pagination support
+    - Accessories (text, icons, dates)
+    - `List.Item.Detail` with Metadata
+    - Sections with subtitles
+    - Empty states
+  </Tab>
+  
+  <Tab title="Form">
+    ```typescript
+    import { Form, ActionPanel, Action } from '@raycast/api';
+    
+    export default function Command() {
+      return (
+        <Form
+          actions={
+            <ActionPanel>
+              <Action.SubmitForm
+                title="Submit"
+                onSubmit={(values) => console.log(values)}
+              />
+            </ActionPanel>
+          }
+        >
+          <Form.TextField id="name" title="Name" />
+          <Form.TextArea id="bio" title="Bio" />
+          <Form.Dropdown id="role" title="Role">
+            <Form.Dropdown.Item value="dev" title="Developer" />
+            <Form.Dropdown.Item value="designer" title="Designer" />
+          </Form.Dropdown>
+          <Form.DatePicker id="date" title="Start Date" />
+          <Form.Checkbox id="agree" label="I agree" />
+        </Form>
+      );
+    }
+    ```
+    
+    **All Field Types:**
+    - TextField (with validation)
+    - TextArea (multi-line)
+    - Dropdown (single/multi-select)
+    - DatePicker (date, time, datetime)
+    - Checkbox
+    - FilePicker (files/directories)
+    - Separator
+    - Description (read-only text)
+  </Tab>
+  
+  <Tab title="Grid">
+    ```typescript
+    import { Grid } from '@raycast/api';
+    
+    export default function Command() {
+      return (
+        <Grid columns={5} fit={Grid.Fit.Fill}>
+          <Grid.Item
+            content="🎨"
+            title="Art"
+            actions={/* ... */}
+          />
+          <Grid.Section title="Photos">
+            <Grid.Item
+              content={{ source: 'photo.jpg' }}
+              title="Vacation"
+            />
+          </Grid.Section>
+        </Grid>
+      );
+    }
+    ```
+    
+    **Features:**
+    - Dynamic column count
+    - Grid.Fit (Fill/Contain)
+    - Sections with custom layouts
+    - Aspect ratio control
+    - Image and emoji content
+  </Tab>
+  
+  <Tab title="Detail">
+    ```typescript
+    import { Detail } from '@raycast/api';
+    
+    export default function Command() {
+      return (
+        <Detail
+          markdown="# Hello World\n\nWelcome to **SuperCmd**!"
+          metadata={
+            <Detail.Metadata>
+              <Detail.Metadata.Label
+                title="Status"
+                text="Active"
+              />
+              <Detail.Metadata.Link
+                title="Website"
+                target="https://example.com"
+                text="Visit"
+              />
+              <Detail.Metadata.TagList title="Tags">
+                <Detail.Metadata.TagList.Item text="Important" color="#FF0000" />
+              </Detail.Metadata.TagList>
+              <Detail.Metadata.Separator />
+            </Detail.Metadata>
+          }
+        />
+      );
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Hooks
+
+The `useNavigation` hook provides navigation stack control:
+
+```typescript
+import { useNavigation } from '@raycast/api';
+
+function MyComponent() {
+  const { push, pop } = useNavigation();
+  
+  return (
+    <Action
+      title="Go to Details"
+      onAction={() => push(<DetailView />)}
+    />
+  );
+}
+```
+
+## Functions
+
+### Window Management
+
+<Tabs>
+  <Tab title="showToast">
+    ```typescript
+    import { showToast, Toast } from '@raycast/api';
+    
+    await showToast({
+      style: Toast.Style.Success,
+      title: 'Operation Complete',
+      message: 'Your data has been saved',
+      primaryAction: {
+        title: 'Undo',
+        onAction: () => console.log('Undo'),
+      },
+    });
+    ```
+    
+    **Toast Styles:**
+    - `Toast.Style.Success` - Green checkmark
+    - `Toast.Style.Failure` - Red error
+    - `Toast.Style.Animated` - Loading spinner
+  </Tab>
+  
+  <Tab title="showHUD">
+    ```typescript
+    import { showHUD } from '@raycast/api';
+    
+    await showHUD('Copied to clipboard');
+    ```
+    
+    Shows a temporary heads-up display notification.
+  </Tab>
+  
+  <Tab title="confirmAlert">
+    ```typescript
+    import { confirmAlert, Alert } from '@raycast/api';
+    
+    const confirmed = await confirmAlert({
+      title: 'Delete Item',
+      message: 'This action cannot be undone',
+      primaryAction: {
+        title: 'Delete',
+        style: Alert.ActionStyle.Destructive,
+      },
+      dismissAction: {
+        title: 'Cancel',
+      },
+    });
+    ```
+  </Tab>
+</Tabs>
+
+### System Integration
+
+<Accordion title="Application APIs">
+  ```typescript
+  import {
+    getApplications,
+    getDefaultApplication,
+    getFrontmostApplication,
+    open,
+  } from '@raycast/api';
+  
+  // Get all installed applications
+  const apps = await getApplications();
+  
+  // Get default app for a file
+  const defaultApp = await getDefaultApplication('document.pdf');
+  
+  // Get currently active app
+  const frontmost = await getFrontmostApplication();
+  
+  // Open URL in default browser
+  await open('https://example.com');
+  
+  // Open URL in specific app
+  await open('https://example.com', 'Safari');
+  ```
+</Accordion>
+
+<Accordion title="File System APIs">
+  ```typescript
+  import {
+    getSelectedFinderItems,
+    showInFinder,
+    trash,
+  } from '@raycast/api';
+  
+  // Get selected files in Finder
+  const files = await getSelectedFinderItems();
+  
+  // Show file in Finder
+  await showInFinder('/path/to/file.txt');
+  
+  // Move to trash
+  await trash(['/path/to/file.txt']);
+  ```
+</Accordion>
+
+## Storage & State
+
+### LocalStorage
+
+Persistent key-value storage scoped to each extension:
+
+```typescript
+import { LocalStorage } from '@raycast/api';
+
+// Store values (supports string, number, boolean)
+await LocalStorage.setItem('lastSearch', 'raycast');
+await LocalStorage.setItem('count', 42);
+await LocalStorage.setItem('enabled', true);
+
+// Retrieve values
+const search = await LocalStorage.getItem('lastSearch'); // 'raycast'
+const count = await LocalStorage.getItem('count');       // 42
+
+// Get all items
+const all = await LocalStorage.allItems();
+
+// Remove items
+await LocalStorage.removeItem('lastSearch');
+await LocalStorage.clear();
+```
+
+<Note>
+SuperCmd uses a scoped prefix (`sc-ext:{extensionName}:`) to isolate storage between extensions. Legacy keys are automatically migrated.
+</Note>
+
+### Cache
+
+LRU cache with size limits:
+
+```typescript
+import { Cache } from '@raycast/api';
+
+const cache = new Cache({
+  capacity: 10 * 1024 * 1024, // 10MB
+  namespace: 'my-cache',
+});
+
+// Store data
+cache.set('user:123', JSON.stringify(userData));
+
+// Retrieve data
+const cached = cache.get('user:123');
+
+// Subscribe to changes
+const unsubscribe = cache.subscribe((key, data) => {
+  console.log(`Cache updated: ${key}`);
+});
+```
+
+### Clipboard
+
+Advanced clipboard operations with history support:
+
+```typescript
+import { Clipboard } from '@raycast/api';
+
+// Copy text
+await Clipboard.copy('Hello World');
+
+// Copy without showing toast
+await Clipboard.copy('Secret', { concealed: true });
+
+// Copy rich content
+await Clipboard.copy({
+  text: 'Plain text',
+  html: '<b>Rich HTML</b>',
+});
+
+// Copy files
+await Clipboard.copy({
+  file: '/path/to/image.png',
+});
+
+// Read clipboard
+const text = await Clipboard.readText();
+const content = await Clipboard.read(); // { text, html, file }
+
+// Paste to active app
+await Clipboard.paste('Text to paste');
+```
+
+## AI Integration
+
+Full AI API with streaming support:
+
+<Tabs>
+  <Tab title="AI.ask()">
+    ```typescript
+    import { AI } from '@raycast/api';
+    
+    const answer = await AI.ask('What is the capital of France?', {
+      model: AI.Model.Anthropic_Claude_Sonnet,
+      creativity: 'medium',
+    });
+    
+    console.log(answer); // 'Paris'
+    ```
+  </Tab>
+  
+  <Tab title="Streaming">
+    ```typescript
+    import { AI } from '@raycast/api';
+    
+    const stream = AI.ask('Write a poem');
+    
+    stream.on('data', (chunk) => {
+      process.stdout.write(chunk);
+    });
+    
+    const fullText = await stream;
+    ```
+  </Tab>
+  
+  <Tab title="Available Models">
+    ```typescript
+    AI.Model = {
+      OpenAI_GPT4o: 'openai-gpt-4o',
+      OpenAI_GPT4o_mini: 'openai-gpt-4o-mini',
+      OpenAI_o1: 'openai-o1',
+      Anthropic_Claude_Opus: 'anthropic-claude-opus',
+      Anthropic_Claude_Sonnet: 'anthropic-claude-sonnet',
+      Anthropic_Claude_Haiku: 'anthropic-claude-haiku',
+      Google_Gemini_2_5_Pro: 'gemini-gemini-2.5-pro',
+      Google_Gemini_2_5_Flash: 'gemini-gemini-2.5-flash',
+    };
+    ```
+  </Tab>
+</Tabs>
+
+## @raycast/utils Hooks
+
+Advanced utility hooks for common patterns:
+
+<Tabs>
+  <Tab title="useCachedPromise">
+    ```typescript
+    import { useCachedPromise } from '@raycast/utils';
+    
+    function SearchCommand() {
+      const { data, isLoading, revalidate } = useCachedPromise(
+        async (query: string) => {
+          const response = await fetch(`/api/search?q=${query}`);
+          return response.json();
+        },
+        ['initial query'],
+        {
+          keepPreviousData: true,
+        }
+      );
+      
+      return (
+        <List isLoading={isLoading}>
+          {data?.map(item => (
+            <List.Item key={item.id} title={item.title} />
+          ))}
+        </List>
+      );
+    }
+    ```
+  </Tab>
+  
+  <Tab title="useFetch">
+    ```typescript
+    import { useFetch } from '@raycast/utils';
+    
+    const { data, isLoading } = useFetch('https://api.example.com/data', {
+      headers: { 'Authorization': 'Bearer token' },
+      parseResponse: async (response) => {
+        const json = await response.json();
+        return json.results;
+      },
+    });
+    ```
+  </Tab>
+  
+  <Tab title="useAI">
+    ```typescript
+    import { useAI } from '@raycast/utils';
+    
+    const { data, isLoading } = useAI('Summarize this text: ...');
+    ```
+  </Tab>
+  
+  <Tab title="useSQL">
+    ```typescript
+    import { useSQL } from '@raycast/utils';
+    
+    const { data, isLoading } = useSQL(
+      '/path/to/database.db',
+      'SELECT * FROM users WHERE name LIKE ?',
+      ['%John%']
+    );
+    ```
+  </Tab>
+  
+  <Tab title="useExec">
+    ```typescript
+    import { useExec } from '@raycast/utils';
+    
+    const { data, isLoading } = useExec('git', ['status'], {
+      cwd: '/path/to/repo',
+    });
+    ```
+  </Tab>
+</Tabs>
+
+## Icon System
+
+SuperCmd maps Raycast icon names to Phosphor icons:
+
+```typescript
+import { Icon, Color, List } from '@raycast/api';
+
+<List.Item
+  icon={{ source: Icon.Star, tintColor: Color.Yellow }}
+  title="Favorite"
+/>
+
+<List.Item
+  icon={{ source: 'custom-icon.png' }}  // Asset from extension
+  title="Custom Icon"
+/>
+
+<List.Item
+  icon="🎉"  // Emoji
+  title="Celebration"
+/>
+```
+
+### Icon Runtime
+
+The icon system is split into focused modules:
+
+<CardGroup cols={2}>
+  <Card title="icon-runtime-phosphor.tsx" icon="icons">
+    Raycast icon name → Phosphor icon mapping with 200+ icons
+  </Card>
+  <Card title="icon-runtime-assets.tsx" icon="image">
+    Asset path normalization and `sc-asset://` protocol handling
+  </Card>
+  <Card title="icon-runtime-render.tsx" icon="paintbrush">
+    Actual rendering logic with tint color support
+  </Card>
+  <Card title="icon-runtime-config.ts" icon="gear">
+    Extension context injection for asset resolution
+  </Card>
+</CardGroup>
+
+## Environment Object
+
+Provides extension context and system information:
+
+```typescript
+import { environment, LaunchType } from '@raycast/api';
+
+environment.extensionName;      // 'my-extension'
+environment.commandName;        // 'search'
+environment.commandMode;        // 'view' | 'no-view' | 'menu-bar'
+environment.assetsPath;         // '/path/to/assets'
+environment.supportPath;        // '/path/to/extension/data'
+environment.raycastVersion;     // '1.80.0'
+environment.appearance;         // 'dark' | 'light'
+environment.launchType;         // LaunchType.UserInitiated
+environment.isDevelopment;      // false
+
+// Feature detection
+if (environment.canAccess(AI)) {
+  // AI is available
+}
+```
+
+## OAuth Implementation
+
+Full OAuth 2.0 support with PKCE:
+
+```typescript
+import { OAuth } from '@raycast/api';
+
+const client = new OAuth.PKCEClient({
+  redirectMethod: OAuth.RedirectMethod.Web,
+  providerName: 'GitHub',
+  providerIcon: 'github-logo.png',
+  description: 'Connect your GitHub account',
+});
+
+const authRequest = await client.authorizationRequest({
+  endpoint: 'https://github.com/login/oauth/authorize',
+  clientId: 'your-client-id',
+  scope: 'repo user',
+});
+
+const { authorizationCode } = await client.authorize(authRequest);
+
+const tokens = await client.exchangeTokens({
+  endpoint: 'https://github.com/login/oauth/access_token',
+  clientId: 'your-client-id',
+  codeVerifier: authRequest.codeVerifier,
+  authorizationCode,
+});
+
+await client.setTokens(tokens);
+```
+
+### OAuth Service Presets
+
+Pre-configured services for popular providers:
+
+```typescript
+import { OAuthService } from '@raycast/api';
+
+const github = OAuthService.github({
+  clientId: 'your-client-id',
+  scope: 'repo user',
+});
+
+const spotify = OAuthService.spotify({
+  clientId: 'your-client-id',
+  scope: 'user-read-private',
+});
+
+const linear = OAuthService.linear({
+  clientId: 'your-client-id',
+  scope: 'read write',
+});
+```
+
+## Implementation Status
+
+SuperCmd implements **100% of the core Raycast API**:
+
+<Accordion title="@raycast/api Components (100%)">
+  - ✅ List (with filtering, pagination, accessories, Detail)
+  - ✅ Detail (with Metadata: Label, Link, TagList, Separator)
+  - ✅ Form (all field types, validation, drafts)
+  - ✅ Grid (sections, fit modes, aspect ratio)
+  - ✅ ActionPanel (with Submenu)
+  - ✅ Action (all action types)
+  - ✅ MenuBarExtra (menu bar integration)
+</Accordion>
+
+<Accordion title="@raycast/api Functions (100%)">
+  - ✅ showToast, showHUD, confirmAlert
+  - ✅ open, closeMainWindow, popToRoot
+  - ✅ launchCommand, clearSearchBar
+  - ✅ getApplications, getDefaultApplication, getFrontmostApplication
+  - ✅ getSelectedText, getSelectedFinderItems
+  - ✅ trash, showInFinder
+  - ✅ openExtensionPreferences, openCommandPreferences
+  - ✅ updateCommandMetadata
+  - ✅ captureException
+</Accordion>
+
+<Accordion title="@raycast/utils Hooks (100%)">
+  - ✅ useFetch (with pagination)
+  - ✅ useCachedPromise (with cursor pagination)
+  - ✅ useCachedState
+  - ✅ usePromise (with mutate/revalidate)
+  - ✅ useForm (with validation)
+  - ✅ useExec
+  - ✅ useSQL
+  - ✅ useStreamJSON
+  - ✅ useAI
+  - ✅ useFrecencySorting
+  - ✅ useLocalStorage
+</Accordion>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Using the API">
+    - Always import from `@raycast/api`, never from internal paths
+    - Use TypeScript for better type safety and autocomplete
+    - Handle loading and error states in async operations
+    - Test extensions with different themes (dark/light)
+  </Accordion>
+  
+  <Accordion title="Performance">
+    - Use `useCachedPromise` for expensive async operations
+    - Leverage `keepPreviousData` to prevent loading flickers
+    - Avoid heavy computation in render functions
+    - Use `React.memo()` for frequently re-rendered components
+  </Accordion>
+  
+  <Accordion title="Error Handling">
+    - Always wrap async operations in try/catch
+    - Show user-friendly error messages with `showToast`
+    - Use `captureException()` to log errors
+    - Provide fallback UI for error states
+  </Accordion>
+</AccordionGroup>
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Extension Runtime" href="./extension-runtime" icon="gear">
+    Learn how extensions are loaded and executed
+  </Card>
+  <Card title="Electron Architecture" href="./electron-architecture" icon="window">
+    Understand the IPC bridge and process model
+  </Card>
+  <Card title="Raycast API Docs" href="https://developers.raycast.com/api-reference" icon="book">
+    Official Raycast API documentation
+  </Card>
+</CardGroup>

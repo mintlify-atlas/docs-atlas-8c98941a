@@ -1,0 +1,436 @@
+---
+title: Clipboard History
+description: Track, search, and reuse everything you copy
+icon: clipboard-list
+---
+
+SuperCmd automatically tracks your clipboard history, storing text, images, URLs, and files for quick access and reuse.
+
+## Overview
+
+Clipboard History in SuperCmd:
+
+- **Automatic monitoring** - Polls clipboard every 1 second (src/main/clipboard-manager.ts:65)
+- **Stores up to 1000 items** - Configurable limit
+- **Supports multiple types** - Text, images, URLs, files
+- **Persistent storage** - Survives app restarts
+- **Fast search** - Find items by content
+- **Privacy-aware** - Filters internal clipboard probes
+
+<Info>
+  Clipboard monitoring starts automatically when SuperCmd launches. History is saved to `~/Library/Application Support/SuperCmd/clipboard-history/`.
+</Info>
+
+## Clipboard Item Types
+
+Supported item types (src/main/clipboard-manager.ts:46):
+
+```typescript
+export interface ClipboardItem {
+  id: string;                    // Unique identifier
+  type: 'text' | 'image' | 'url' | 'file';
+  content: string;               // Text/URL/path or image file path
+  preview?: string;              // Truncated preview (200 chars)
+  timestamp: number;             // When copied
+  metadata?: {                   // Type-specific metadata
+    width?: number;              // Image dimensions
+    height?: number;
+    size?: number;               // File size (bytes)
+    format?: string;             // Image format (png/jpg/gif)
+    filename?: string;           // File name
+  };
+}
+```
+
+### Type Detection
+
+Automatic content type classification (src/main/clipboard-manager.ts:152):
+
+```typescript
+function detectType(text: string): 'url' | 'file' | 'text' {
+  // URL: Starts with http:// or https://
+  // File: macOS path (/ or ~) that exists on disk
+  // Text: Everything else
+}
+```
+
+## Using Clipboard History
+
+<Steps>
+  <Step title="Open Clipboard Manager">
+    Press SuperCmd hotkey, then search for "Clipboard Manager" or use `Cmd+Shift+V`.
+  </Step>
+  
+  <Step title="Browse History">
+    Scroll through items (newest first) or search by content.
+  </Step>
+  
+  <Step title="Preview Item">
+    Select an item to see full preview on the right side (40/60 split).
+  </Step>
+  
+  <Step title="Copy Again">
+    Press `Enter` to copy the item back to clipboard, or `Cmd+Enter` to paste directly.
+  </Step>
+</Steps>
+
+## Clipboard Manager UI
+
+The UI is implemented in `src/renderer/src/ClipboardManager.tsx`:
+
+### Layout
+
+- **Left Panel (40%)**: Item list with icons and previews
+- **Right Panel (60%)**: Full preview of selected item
+- **Search Bar**: Filter by content
+- **Filter Tabs**: All, Text, Images, URLs, Files
+- **Actions Footer**: Keyboard shortcuts and actions
+
+### Visual Design
+
+```typescript
+// Theme-aware styling (ClipboardManager.tsx:41)
+const isGlassyTheme = document.documentElement.classList.contains('sc-glassy');
+const isNativeLiquidGlass = document.documentElement.classList.contains('sc-native-liquid-glass');
+```
+
+Matches the main SuperCmd window theme automatically.
+
+## Image Support
+
+Images are stored separately for efficiency (src/main/clipboard-manager.ts:236):
+
+### Image Storage
+
+1. **Detection**: Clipboard image detected
+2. **Format Check**: Supports PNG, JPG, GIF, WebP
+3. **Size Limit**: Max 10MB per image
+4. **Storage**: Saved to `clipboard-history/images/[uuid].png`
+5. **Metadata**: Dimensions, format, size recorded
+
+### GIF Preservation
+
+Animated GIFs are handled specially (src/main/clipboard-manager.ts:22):
+
+```typescript
+function writeGifToClipboard(filePath: string): boolean {
+  // Uses macOS NSPasteboard to preserve animation
+  // Writes both:
+  // - com.compuserve.gif (animated)
+  // - public.tiff (static fallback)
+}
+```
+
+<Note>
+  GIF animations are preserved when copying back to clipboard. Other apps that support GIFs will see the animation.
+</Note>
+
+## Search & Filtering
+
+### Content Search
+
+Search by partial text match (src/main/clipboard-manager.ts:450):
+
+```typescript
+export function searchClipboardHistory(query: string): ClipboardItem[] {
+  const lowerQuery = query.toLowerCase();
+  return clipboardHistory.filter((item) => {
+    // Only text-like items are searchable
+    if (item.type === 'text' || item.type === 'url' || item.type === 'file') {
+      return item.content.toLowerCase().includes(lowerQuery);
+    }
+    return false;
+  });
+}
+```
+
+### Type Filtering
+
+<Tabs>
+  <Tab title="All">
+    Show all clipboard items (default)
+  </Tab>
+  <Tab title="Text">
+    Only plain text items
+  </Tab>
+  <Tab title="Images">
+    Only images (PNG, JPG, GIF, WebP)
+  </Tab>
+  <Tab title="URLs">
+    Only detected URLs (http/https)
+  </Tab>
+  <Tab title="Files">
+    Only file paths
+  </Tab>
+</Tabs>
+
+## Persistence
+
+### Saving History
+
+History is saved automatically (src/main/clipboard-manager.ts:137):
+
+```typescript
+function saveHistory(): void {
+  const historyPath = getHistoryFilePath();
+  // ~/Library/Application Support/SuperCmd/clipboard-history/history.json
+  fs.writeFileSync(historyPath, JSON.stringify(clipboardHistory, null, 2));
+}
+```
+
+### Loading on Startup
+
+History loads when SuperCmd starts (src/main/clipboard-manager.ts:100):
+
+```typescript
+function loadHistory(): void {
+  // Loads from history.json
+  // Verifies image files still exist
+  // Filters internal probe artifacts
+  // Deduplicates text entries
+}
+```
+
+## Deduplication
+
+Prevents duplicate entries (src/main/clipboard-manager.ts:197):
+
+### Text Deduplication
+
+```typescript
+function findComparableTextItemIndex(type, normalizedContent): number {
+  // Finds existing item with same normalized content
+  // Normalization: trim + convert \r\n to \n
+  // If found: Move to top, update timestamp
+  // If not found: Add as new item
+}
+```
+
+### Why Dedupe?
+
+- Prevents cluttering history with repeated copies
+- Keeps most recent timestamp for each unique item
+- Maintains 1000-item limit more effectively
+
+<Tip>
+  Copying the same text again moves it to the top of history instead of creating a duplicate.
+</Tip>
+
+## Actions
+
+Available actions for clipboard items:
+
+| Action | Shortcut | Description |
+|--------|----------|-------------|
+| Copy to Clipboard | `Enter` | Copy item again |
+| Paste Directly | `Cmd+Enter` | Copy and paste to frontmost app |
+| Delete Item | `Cmd+Delete` | Remove from history |
+| Clear All | `Cmd+Shift+Delete` | Clear entire history |
+
+## Privacy Features
+
+### Internal Probe Filtering
+
+SuperCmd uses clipboard probes for some operations. These are automatically filtered (src/main/clipboard-manager.ts:68):
+
+```typescript
+const INTERNAL_CLIPBOARD_PROBE_REGEX = /^__supercmd_[a-z0-9_]+_probe__\d+_[a-z0-9]+$/i;
+
+// These never appear in history
+if (INTERNAL_CLIPBOARD_PROBE_REGEX.test(text)) return;
+```
+
+### Sensitive Data
+
+While SuperCmd stores clipboard history locally, consider:
+
+- **Passwords**: May be copied from password managers
+- **API Keys**: Could appear in history
+- **Personal Info**: Credit cards, SSNs, etc.
+
+<Warning>
+  Be mindful of sensitive data in clipboard history. Use the Clear All action to purge history when needed.
+</Warning>
+
+### Temporary Disable
+
+Pause monitoring for sensitive operations:
+
+```typescript
+export function setClipboardMonitorEnabled(enabled: boolean): void {
+  // Stops polling clipboard
+  // Existing history remains
+}
+```
+
+<Note>
+  Clipboard monitoring can be disabled in Settings > General > Clipboard History.
+</Note>
+
+## Settings
+
+### Enable/Disable Monitoring
+
+**Settings > General > Clipboard History**:
+- Toggle monitoring on/off
+- Does not affect existing history
+
+### History Limit
+
+Default: 1000 items (configurable):
+
+```typescript
+const MAX_ITEMS = 1000;
+
+if (clipboardHistory.length > MAX_ITEMS) {
+  const removed = clipboardHistory.pop();
+  // Delete old image files to free space
+}
+```
+
+### Maximum Text Length
+
+Very large text items are skipped:
+
+```typescript
+const MAX_TEXT_LENGTH = 100_000; // 100KB
+if (text.length > MAX_TEXT_LENGTH) return;
+```
+
+Prevents performance issues with huge clipboard contents.
+
+## Keyboard Shortcuts
+
+| Action | Shortcut |
+|--------|----------|
+| Open Clipboard Manager | `Cmd+Shift+V` |
+| Search | `Cmd+F` |
+| Select Next | `↓` or `Tab` |
+| Select Previous | `↑` or `Shift+Tab` |
+| Copy Item | `Enter` |
+| Paste Item | `Cmd+Enter` |
+| Delete Item | `Cmd+Delete` |
+| Clear All | `Cmd+Shift+Delete` |
+| Close Manager | `Escape` |
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Search Often" icon="magnifying-glass">
+    Use search to find old items quickly instead of scrolling
+  </Card>
+  
+  <Card title="Use Filters" icon="filter">
+    Filter by type (Images, URLs) to narrow results
+  </Card>
+  
+  <Card title="Clear Periodically" icon="broom">
+    Purge history monthly to free space and improve privacy
+  </Card>
+  
+  <Card title="Check Before Pasting" icon="eye">
+    Use preview panel to verify content before pasting
+  </Card>
+</CardGroup>
+
+## Storage Management
+
+### Disk Usage
+
+Clipboard history storage:
+
+- **Text/URLs/Files**: ~1KB per item (in history.json)
+- **Images**: Varies (typically 50KB - 2MB each)
+- **Total**: Usually < 100MB for full history
+
+### Clearing Storage
+
+Manually clear all data:
+
+1. Close SuperCmd
+2. Delete `~/Library/Application Support/SuperCmd/clipboard-history/`
+3. Restart SuperCmd (fresh history starts)
+
+Or use in-app Clear All action.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Items not appearing in history">
+    1. Check clipboard monitoring is enabled (Settings > General)
+    2. Verify item type is supported (text, image, URL, file)
+    3. Check if item exceeds size limits (10MB images, 100KB text)
+    4. Ensure you're copying, not cutting
+  </Accordion>
+  
+  <Accordion title="Images not loading">
+    - Image file may have been deleted from disk
+    - Check `clipboard-history/images/` directory
+    - Verify file permissions
+    - Clear history and re-copy image
+  </Accordion>
+  
+  <Accordion title="History lost after restart">
+    - Check `history.json` file permissions
+    - Verify app has write access to user directory
+    - Look for error logs in Console.app
+  </Accordion>
+  
+  <Accordion title="Duplicates appearing">
+    - Deduplication only works for exact matches
+    - Extra whitespace creates "different" items
+    - Images always create new entries (no dedup)
+  </Accordion>
+</AccordionGroup>
+
+## Advanced Usage
+
+### Programmatic Access
+
+Extensions can access clipboard history:
+
+```typescript
+import { Clipboard } from '@raycast/api';
+
+// Read current clipboard
+const current = await Clipboard.readText();
+
+// Copy to clipboard
+await Clipboard.copy("Hello, world!");
+
+// Copy with metadata
+await Clipboard.copy({
+  text: "Hello",
+  html: "<b>Hello</b>"
+});
+```
+
+<Note>
+  Extensions cannot access full clipboard history for privacy reasons. They only see current clipboard content.
+</Note>
+
+## Performance
+
+### Polling Efficiency
+
+Clipboard is polled efficiently (src/main/clipboard-manager.ts:282):
+
+```typescript
+const POLL_INTERVAL = 1000; // 1 second
+
+function pollClipboard(): void {
+  // Quick hash comparison to detect changes
+  // Only process if clipboard actually changed
+  // Minimal CPU usage (~0.1%)
+}
+```
+
+### Memory Usage
+
+History kept in memory for fast access:
+
+- **Text items**: ~1KB each in RAM
+- **Image metadata**: ~500 bytes (images stored on disk)
+- **1000 items**: ~1-2MB total RAM
+
+Negligible impact on system performance.

@@ -1,80 +1,494 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: "Quick Start Guide"
+description: "Get started with SuperCmd in 5 minutes — from first launch to your first extension"
 ---
 
-## Get started in three steps
+## Welcome to SuperCmd!
 
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+This guide will help you go from installation to running your first commands and installing your first extension.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  **Prerequisites:** SuperCmd must be [installed](/installation) with required permissions granted.
 </Note>
+
+## Launch SuperCmd
+
+There are three ways to open SuperCmd:
+
+<CardGroup cols={3}>
+  <Card title="Global Hotkey" icon="keyboard">
+    Press `Cmd + Space` (default)
+  </Card>
+  <Card title="Menu Bar" icon="bars">
+    Click the SuperCmd icon in your menu bar
+  </Card>
+  <Card title="Spotlight" icon="magnifying-glass">
+    Search for "SuperCmd" in Spotlight
+  </Card>
+</CardGroup>
+
+<Tip>
+  You can change the global hotkey in **Settings** → **General** → **Global Hotkey**.
+</Tip>
+
+## Run Your First Command
+
+Let's start with something simple.
+
+<Steps>
+  <Step title="Open the launcher">
+    Press `Cmd + Space` to open SuperCmd.
+  </Step>
+
+  <Step title="Search for an app">
+    Type **"Safari"** (or any app you have installed).
+
+    SuperCmd will filter results as you type, showing matching applications.
+  </Step>
+
+  <Step title="Launch it">
+    Press `Enter` to open the selected app.
+  </Step>
+</Steps>
+
+<Check>
+  **Success!** You've just run your first command. SuperCmd searches applications, System Settings, files, extensions, and more — all from one interface.
+</Check>
+
+## Explore Built-in Commands
+
+SuperCmd comes with several built-in features. Try these commands:
+
+<AccordionGroup>
+  <Accordion icon="calculator" title="Calculator">
+    Type a math expression directly into the search bar:
+
+    ```
+    2 + 2
+    sqrt(144)
+    (5 * 8) / 2
+    ```
+
+    SuperCmd will evaluate it and show the result instantly. Press `Enter` to copy the result to your clipboard.
+
+    <Tip>
+      The smart calculator supports basic arithmetic, square roots, percentages, and more.
+    </Tip>
+  </Accordion>
+
+  <Accordion icon="clipboard" title="Clipboard History">
+    Search for **"Clipboard History"** or press the configured hotkey.
+
+    You'll see everything you've recently copied:
+    - Text
+    - Images
+    - Files
+    - Rich content
+
+    Select any item and press `Enter` to paste it.
+
+    <Note>
+      Clipboard history is stored locally and never sent to external servers.
+    </Note>
+  </Accordion>
+
+  <Accordion icon="window-maximize" title="Window Management">
+    Search for **"Window Management"** to access window tiling presets:
+
+    - **Left Half** — Tile active window to left half of screen
+    - **Right Half** — Tile active window to right half
+    - **Maximize** — Maximize active window
+    - **Center** — Center window on screen
+    - **Quarters** — Tile to any screen quarter
+
+    Select a preset and press `Enter` to apply it to the frontmost window.
+
+    <Warning>
+      Requires **Accessibility** permission. See [Installation → Permissions](/installation#grant-required-permissions).
+    </Warning>
+  </Accordion>
+
+  <Accordion icon="code" title="Snippets">
+    Create reusable text snippets with keyword triggers.
+
+    **Example:**
+    1. Search for **"Snippets"** and select **"Create Snippet"**
+    2. Set a keyword (e.g., `;;email`)
+    3. Enter the expansion text (e.g., your email address)
+    4. Save
+
+    Now, type `;;email` anywhere and SuperCmd will automatically replace it with your email address.
+
+    <Tip>
+      Great for email signatures, code boilerplate, frequently used phrases, and templates.
+    </Tip>
+  </Accordion>
+
+  <Accordion icon="sparkles" title="AI Chat">
+    Search for **"AI Chat"** or type `?` followed by your question:
+
+    ```
+    ? What is the capital of France?
+    ```
+
+    SuperCmd will stream a response from your configured AI provider (OpenAI, Claude, or Ollama).
+
+    <Note>
+      AI features require API keys. See [AI Configuration](/configuration/ai-providers) to set up your provider.
+    </Note>
+  </Accordion>
+
+  <Accordion icon="microphone" title="Voice Input">
+    Hold the configured **Voice Hotkey** (default: `Cmd + Shift + Space`) to start recording.
+
+    Speak your query, then release the key. SuperCmd will transcribe your speech to text and execute the command.
+
+    **Wispr Flow-style workflow:**
+    1. Hold hotkey
+    2. Speak
+    3. Release
+    4. Text appears instantly
+
+    <Warning>
+      Requires **Microphone** and **Input Monitoring** permissions.
+    </Warning>
+  </Accordion>
+
+  <Accordion icon="book-open" title="Read Aloud (Text-to-Speech)">
+    1. Select any text in any app
+    2. Search for **"Read Selection"** or use the configured hotkey
+    3. SuperCmd will read the text aloud using Edge TTS or ElevenLabs
+
+    Controls:
+    - **Pause/Resume** — Space bar
+    - **Stop** — Escape
+    - **Speed** — Adjust in Settings
+
+    <Tip>
+      Perfect for reading long articles, emails, or documentation hands-free.
+    </Tip>
+  </Accordion>
+</AccordionGroup>
+
+## Install Your First Extension
+
+Extensions add powerful features to SuperCmd. Let's install one!
+
+<Steps>
+  <Step title="Open the Extension Store">
+    Search for **"Store"** or **"Browse Extensions"** in the launcher.
+
+    Press `Enter` to open the extension catalog.
+  </Step>
+
+  <Step title="Browse available extensions">
+    The store shows hundreds of Raycast-compatible extensions:
+    - Search engines
+    - Developer tools
+    - Note-taking apps
+    - Social media integrations
+    - And much more
+
+    <Tip>
+      Use the search bar to filter by name, description, or author.
+    </Tip>
+  </Step>
+
+  <Step title="Install an extension">
+    Let's install the **"GitHub"** extension as an example:
+
+    1. Search for **"GitHub"**
+    2. Select the **GitHub** extension
+    3. Press `Enter` or click **Install**
+    4. Wait for the installation to complete (SuperCmd will clone from GitHub and run `npm install`)
+  </Step>
+
+  <Step title="Run the extension">
+    Once installed, search for **"GitHub"** in the launcher.
+
+    You'll see new commands like:
+    - Search Repositories
+    - My Pull Requests
+    - My Issues
+    - Trending Repositories
+
+    Select a command and press `Enter` to run it.
+  </Step>
+
+  <Step title="Configure extension preferences (if needed)">
+    Some extensions require API keys or configuration.
+
+    If prompted, enter your GitHub personal access token:
+    1. Go to [GitHub Settings → Tokens](https://github.com/settings/tokens)
+    2. Generate a new token
+    3. Copy and paste it into SuperCmd
+    4. Press `Enter` to save
+  </Step>
+</Steps>
+
+<Check>
+  **Congratulations!** You've installed your first extension. You can now use all its commands from the launcher.
+</Check>
+
+## Extension Management
+
+<CardGroup cols={2}>
+  <Card title="View Installed" icon="list">
+    Search for **"Extensions"** to see all installed extensions and manage them.
+  </Card>
+  <Card title="Update Extensions" icon="rotate">
+    Search for **"Update Extensions"** to check for and install updates.
+  </Card>
+  <Card title="Disable Extension" icon="ban">
+    Right-click any extension command and select **Disable Extension**.
+  </Card>
+  <Card title="Uninstall" icon="trash">
+    Search for **"Extensions"**, select one, and choose **Uninstall**.
+  </Card>
+</CardGroup>
+
+## Keyboard Shortcuts & Navigation
+
+Master these shortcuts to use SuperCmd efficiently:
+
+| Shortcut | Action |
+|----------|--------|
+| `Cmd + Space` | Open launcher (default) |
+| `Esc` | Close launcher |
+| `↑` / `↓` | Navigate results |
+| `Enter` | Execute selected command |
+| `Cmd + Enter` | Open in new window |
+| `Cmd + K` | Open action panel |
+| `Cmd + ,` | Open settings |
+| `Cmd + Backspace` | Clear search |
+| `Tab` | Autocomplete |
+
+<Tip>
+  Most extensions support **`Cmd + K`** to open an action panel with additional options (copy, share, delete, etc.).
+</Tip>
+
+## Customize Your Experience
+
+Make SuperCmd your own:
+
+<Steps>
+  <Step title="Open Settings">
+    Search for **"Settings"** or press `Cmd + ,` from the launcher.
+  </Step>
+
+  <Step title="Explore settings tabs">
+    - **General** — Hotkeys, theme, font size, UI style
+    - **AI** — Configure OpenAI, Claude, or Ollama
+    - **Extensions** — Manage installed extensions
+    - **Advanced** — Developer options, storage paths
+  </Step>
+
+  <Step title="Customize the theme">
+    Choose from:
+    - **Auto** — Follows system dark/light mode
+    - **Light** — Always light theme
+    - **Dark** — Always dark theme
+  </Step>
+
+  <Step title="Adjust font size">
+    Change the UI font size to your preference (Small, Medium, Large).
+  </Step>
+</Steps>
+
+## Configure AI Providers (Optional)
+
+Unlock AI-powered features:
+
+<Tabs>
+  <Tab title="OpenAI">
+    1. Open **Settings** → **AI**
+    2. Enable AI features
+    3. Select **OpenAI** as the provider
+    4. Enter your OpenAI API key
+    5. Choose a model (e.g., `gpt-4o-mini`)
+    6. Save
+
+    <Note>
+      Get your API key from [platform.openai.com](https://platform.openai.com/api-keys)
+    </Note>
+  </Tab>
+
+  <Tab title="Anthropic (Claude)">
+    1. Open **Settings** → **AI**
+    2. Enable AI features
+    3. Select **Claude** as the provider
+    4. Enter your Anthropic API key
+    5. Choose a model (e.g., `claude-3-5-sonnet`)
+    6. Save
+
+    <Note>
+      Get your API key from [console.anthropic.com](https://console.anthropic.com/)
+    </Note>
+  </Tab>
+
+  <Tab title="Ollama (Local)">
+    1. Install Ollama: [ollama.ai](https://ollama.ai)
+    2. Pull a model: `ollama pull llama3`
+    3. Open **Settings** → **AI**
+    4. Select **Ollama** as the provider
+    5. Verify base URL: `http://localhost:11434`
+    6. Save
+
+    <Tip>
+      Ollama runs models locally — no API key or internet required!
+    </Tip>
+  </Tab>
+</Tabs>
+
+## Advanced Features
+
+<AccordionGroup>
+  <Accordion title="Script Commands">
+    SuperCmd supports **Raycast-compatible script commands** — shell scripts that appear as launcher commands.
+
+    **How to use:**
+    1. Place executable scripts in `~/Library/Application Support/SuperCmd/scripts/`
+    2. Add Raycast metadata at the top:
+       ```bash
+       #!/bin/bash
+
+       # Required parameters:
+       # @raycast.schemaVersion 1
+       # @raycast.title My Script
+       # @raycast.mode fullOutput
+       ```
+    3. Search for your script name in the launcher
+
+    See [Raycast Script Commands](https://github.com/raycast/script-commands) for examples.
+  </Accordion>
+
+  <Accordion title="Quick Links">
+    Create custom launcher actions that open URLs or run commands with dynamic parameters.
+
+    Search for **"Quick Links"** to create your own.
+  </Accordion>
+
+  <Accordion title="File Search">
+    SuperCmd indexes your home directory for fast file search.
+
+    Type any filename, and SuperCmd will show matching files. Press `Enter` to open.
+
+    <Tip>
+      Supports path queries like `~/Documents` or `/Applications`.
+    </Tip>
+  </Accordion>
+
+  <Accordion title="Memory Integration (Supermemory)">
+    Connect SuperCmd to [Supermemory](https://supermemory.ai) for AI that remembers:
+
+    1. Sign up at [supermemory.ai](https://supermemory.ai)
+    2. Get your API key and client ID
+    3. Open **Settings** → **AI** → **Memory**
+    4. Enter your Supermemory credentials
+    5. Enable memory features
+
+    Now AI responses will include context from your past conversations and documents.
+  </Accordion>
+</AccordionGroup>
+
+## Common Workflows
+
+<CardGroup cols={2}>
+  <Card title="Developer Workflow" icon="code">
+    - Search for repos with GitHub extension
+    - Open projects in VS Code
+    - Search documentation
+    - Copy code snippets
+  </Card>
+  <Card title="Productivity Workflow" icon="list-check">
+    - Quick math with calculator
+    - Expand email templates with snippets
+    - Tile windows for multitasking
+    - Search notes and documents
+  </Card>
+  <Card title="Communication Workflow" icon="message">
+    - Voice dictation for messages
+    - AI-powered writing assistance
+    - Clipboard history for copy/paste
+    - Text-to-speech for reading emails
+  </Card>
+  <Card title="Research Workflow" icon="magnifying-glass">
+    - Search the web with extensions
+    - Read articles aloud with TTS
+    - Summarize content with AI
+    - Save to memory for later
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Extension not showing up after install">
+    1. Close and reopen the launcher (`Esc` then `Cmd + Space`)
+    2. Check **Settings** → **Extensions** to verify it's enabled
+    3. Try searching for the extension name directly
+  </Accordion>
+
+  <Accordion title="AI features not working">
+    1. Verify you've configured an AI provider in **Settings** → **AI**
+    2. Check that your API key is valid
+    3. Test the API key directly (e.g., `curl` to OpenAI)
+    4. Check the logs: `~/Library/Logs/SuperCmd/main.log`
+  </Accordion>
+
+  <Accordion title="Voice input not transcribing">
+    1. Grant **Microphone** permission in System Settings
+    2. Test your microphone in another app
+    3. Check **Settings** → **AI** → **Speech to Text Model**
+    4. Try switching between "native" and "elevenlabs"
+  </Accordion>
+
+  <Accordion title="Keyboard shortcuts conflict with other apps">
+    1. Open **Settings** → **General**
+    2. Change the global hotkey to something unique (e.g., `Cmd + Shift + Space`)
+    3. Disable conflicting shortcuts in other apps (Spotlight, Raycast, Alfred)
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+You're now ready to use SuperCmd like a pro! Here's what to explore next:
+
+<CardGroup cols={2}>
+  <Card
+    title="Explore All Features"
+    icon="compass"
+    href="/features/extensions"
+  >
+    Deep dive into extensions, voice input, AI, and more
+  </Card>
+  <Card
+    title="Configure AI Providers"
+    icon="brain"
+    href="/configuration/ai-providers"
+  >
+    Set up OpenAI, Claude, or Ollama for AI-powered workflows
+  </Card>
+  <Card
+    title="Install More Extensions"
+    icon="puzzle-piece"
+    href="/extensions/installing"
+  >
+    Browse hundreds of Raycast-compatible extensions
+  </Card>
+  <Card
+    title="Build from Source"
+    icon="hammer"
+    href="/development/setup"
+  >
+    Contribute to SuperCmd or customize it for your needs
+  </Card>
+</CardGroup>
+
+<Card
+  title="Join the Community"
+  icon="discord"
+  href="https://discord.gg/CsdbknHqx5"
+>
+  Get help, share tips, and connect with other SuperCmd users on Discord
+</Card>
